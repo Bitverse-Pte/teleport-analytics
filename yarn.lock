@@ -712,7 +712,7 @@
     consola "^2.15.0"
     node-fetch "^2.6.1"
 
-"@prisma/client@3.14.0":
+"@prisma/client@^3.14.0":
   version "3.14.0"
   resolved "https://registry.npmjs.org/@prisma/client/-/client-3.14.0.tgz#bb90405c012fcca11f4647d91153ed4c58f3bd48"
   integrity sha512-atb41UpgTR1MCst0VIbiHTMw8lmXnwUvE1KyUCAkq08+wJyjRE78Due+nSf+7uwqQn+fBFYVmoojtinhlLOSaA==
