@@ -10,6 +10,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model TelegramChatMember {
+  id    Int @default(autoincrement()) @id
+  // telegram user's id
+  userId Int
+  // group's id
+  groupId Int
+
+  joinAt DateTime @default(now())
+
+  messageCount Int @default(0)
+  lastSeen DateTime @default(now())
+  activeDays Int @default(0)
+}
+
 model TelegramGroupDailyStat {
   id    Int     @default(autoincrement()) @id
   // telegram group id
@@ -21,5 +35,4 @@ model TelegramGroupDailyStat {
   // active member means anyone that send at least 1 message in group
   activeMemberCount Int
   totalMemberCount Int
-
 }
