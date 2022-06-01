@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { SocksProxyAgent } from 'socks-proxy-agent';
+import { PrismaService } from 'src/prisma/prisma.service';
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
@@ -10,7 +11,9 @@ export class TelegramGroupService {
     private readonly logger = new Logger(TelegramGroupService.name);
 
     private bot: Telegraf;
-    constructor() {
+    constructor(
+        private prisma: PrismaService
+    ) {
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
             telegram: {
                 agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
@@ -66,5 +69,36 @@ export class TelegramGroupService {
            type,
            date
        });
+       const messageSentAt = new Date(date * 1000);
+       console.debug('messageSentAt', messageSentAt);
+       let member = await this.prisma.telegramChatMember.findFirst({
+           where: {
+               userId,
+               groupId: chatId
+           }
+       });
+       if (!member) {
+           member = await this.prisma.telegramChatMember.create({
+               data: {
+                   userId,
+                   groupId: chatId,
+                   messageCount: 1,
+                   activeDays: 1,
+                   lastSeen: messageSentAt
+               }
+           })
+       } else {
+            const isLastSeenToday = member.lastSeen.toDateString() == messageSentAt.toDateString();
+            const updateData: Partial<typeof member> = { messageCount: member.messageCount + 1, lastSeen: messageSentAt };
+            console.debug('member.lastSeen', member.lastSeen);
+            console.debug('isLastSeenToday', isLastSeenToday);
+            if (!isLastSeenToday) {
+                updateData.activeDays = member.activeDays + 1;
+            }
+            await this.prisma.telegramChatMember.update({
+                where: { id: member.id },
+                data: updateData
+            });
+       }
    }
 }
