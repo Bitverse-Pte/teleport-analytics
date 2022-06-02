@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
@@ -11,6 +12,16 @@ export class TelegramGroupService {
     private readonly logger = new Logger(TelegramGroupService.name);
 
     private bot: Telegraf;
+
+    /**
+     * 
+     * daily counters
+     */
+    private dailyNewMemberCount: Record<number, number> = {};
+    private dailyMessageCount: Record<number, number> = {};
+    private activeMemberCount: Record<number, number> = {};
+    private listeningChats: number[] = [];
+
     constructor(
         private prisma: PrismaService
     ) {
@@ -19,9 +30,11 @@ export class TelegramGroupService {
                 agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
             }
         });
+        this.listeningChats = process.env.TELEGRAM_LISTENING_GROUP_IDS.split(',').map(n => Number(n));
+        this.listeningChats.forEach(this._resetCounter.bind(this));
         this.bot.use(async (ctx, next) => {
             const currentChatId = ctx.chat.id;
-            if (!process.env.TELEGRAM_LISTENING_GROUP_IDS.split(',').map(n => Number(n)).includes(currentChatId)) {
+            if (!this.listeningChats.includes(currentChatId)) {
                 this.logger.warn(`attempt to use bot in chat id ${currentChatId}, will be ignored.`);
                 // skip if this chat was not listening
                 return;
@@ -39,14 +52,47 @@ export class TelegramGroupService {
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     }
 
+    private _resetCounter(chatId: number) {
+        console.debug('chatId', chatId);
+        console.info(`Before: this.dailyNewMemberCount ${this.dailyNewMemberCount[chatId]} this.dailyMessageCount ${this.dailyMessageCount[chatId]} this.activeMemberCount ${this.activeMemberCount[chatId]}`)
+        this.dailyNewMemberCount[chatId] = 0;
+        this.dailyMessageCount[chatId] = 0;
+        this.activeMemberCount[chatId] = 0;
+    }
+
     /**
      * Where heavy jobs were done.
      */
     private _registerListener() {
         /**
          * Listening on text
+         * @TODO use batch request instead, to avoid DB too many connections error
          */
-        (['text', 'voice', 'video', 'sticker', 'photo'] as const).forEach(type => this._listenOnGeneralMessage(type))
+        (['text', 'voice', 'video', 'sticker', 'photo'] as const).forEach(type => this._listenOnGeneralMessage(type));
+        this.bot.on('new_chat_members', async (ctx) => {
+            const newMembers = ctx.message.new_chat_members;
+            /** @TODO use createMany when use other database */
+            this.dailyNewMemberCount[ctx.message.chat.id] += 1;
+            await this.prisma.telegramChatMember.create({
+                data: {
+                    userId: newMembers[0].id,
+                    groupId: ctx.message.chat.id,
+                    messageCount: 0,
+                    activeDays: 0,
+                    lastSeen: new Date(0)
+                }
+            });
+        });
+        this.bot.on('left_chat_member', async (ctx) => {
+            const target = await this.prisma.telegramChatMember.findFirst({
+                where: { userId: ctx.message.from.id, groupId: ctx.message.chat.id }
+            })
+            await this.prisma.telegramChatMember.delete({
+                where: {
+                    id: target.id
+                }
+            });
+        })
     }
 
     private async _listenOnGeneralMessage(type: ListeningMessageTypes) {
@@ -62,7 +108,10 @@ export class TelegramGroupService {
      * @param groupId the group's chat id
      * @returns the current number of members in this chat
      */
-    async countGroupMembers(groupId: string | number) {
+    async countGroupMembers(groupId: number) {
+        if (groupId > 0) {
+            groupId = groupId * -1;
+        }
         return this.bot.telegram.getChatMembersCount(groupId);
     }
     /**
@@ -83,7 +132,9 @@ export class TelegramGroupService {
                groupId: chatId
            }
        });
+       this.dailyMessageCount[chatId] += 1;
        if (!member) {
+           this.dailyNewMemberCount[chatId] += 1;
            member = await this.prisma.telegramChatMember.create({
                data: {
                    userId,
@@ -92,7 +143,7 @@ export class TelegramGroupService {
                    activeDays: 1,
                    lastSeen: messageSentAt
                }
-           })
+           });
        } else {
             const isLastSeenToday = member.lastSeen.toDateString() == messageSentAt.toDateString();
             const updateData: Partial<typeof member> = { messageCount: member.messageCount + 1, lastSeen: messageSentAt };
@@ -100,6 +151,7 @@ export class TelegramGroupService {
             console.debug('isLastSeenToday', isLastSeenToday);
             if (!isLastSeenToday) {
                 updateData.activeDays = member.activeDays + 1;
+                this.activeMemberCount[chatId] += 1;
             }
             await this.prisma.telegramChatMember.update({
                 where: { id: member.id },
@@ -107,4 +159,35 @@ export class TelegramGroupService {
             });
        }
    }
+
+   /**
+    * Daily jobs
+    */
+   async _logTelegramGroupDailyStat(groupId: number) {
+       const totalMemberCount = await this.countGroupMembers(groupId);
+       if (!totalMemberCount) {
+           // no permission, stop counting this.
+           return;
+       }
+       console.info('groupId', groupId)
+       const data = {
+        groupId,
+        newMemberCount: this.dailyNewMemberCount[groupId],
+        messageCount: this.dailyMessageCount[groupId],
+        // active member means anyone that send at least 1 message in group
+        activeMemberCount: this.activeMemberCount[groupId],
+        totalMemberCount
+       };
+       console.info('data', data);
+       await this.prisma.telegramGroupDailyStat.create({
+           data
+       });
+       this._resetCounter(groupId);
+   }
+
+    @Cron(CronExpression.EVERY_DAY_AT_1AM)
+    logAllTelegramGroupDailyStats() {
+        /** @TODO use create many instead */
+        this.listeningChats.forEach(this._logTelegramGroupDailyStat.bind(this));
+    }
 }
