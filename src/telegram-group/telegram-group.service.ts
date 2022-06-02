@@ -71,16 +71,15 @@ export class TelegramGroupService {
         (['text', 'voice', 'video', 'sticker', 'photo'] as const).forEach(type => this._listenOnGeneralMessage(type));
         this.bot.on('new_chat_members', async (ctx) => {
             const newMembers = ctx.message.new_chat_members;
-            /** @TODO use createMany when use other database */
             this.dailyNewMemberCount[ctx.message.chat.id] += 1;
-            await this.prisma.telegramChatMember.create({
-                data: {
-                    userId: newMembers[0].id,
+            await this.prisma.telegramChatMember.createMany({
+                data: newMembers.map(m => ({
+                    userId: m.id,
                     groupId: ctx.message.chat.id,
                     messageCount: 0,
                     activeDays: 0,
                     lastSeen: new Date(0)
-                }
+                }))
             });
         });
         this.bot.on('left_chat_member', async (ctx) => {
@@ -163,31 +162,20 @@ export class TelegramGroupService {
    /**
     * Daily jobs
     */
-   async _logTelegramGroupDailyStat(groupId: number) {
-       const totalMemberCount = await this.countGroupMembers(groupId);
-       if (!totalMemberCount) {
-           // no permission, stop counting this.
-           return;
-       }
-       console.info('groupId', groupId)
-       const data = {
-        groupId,
-        newMemberCount: this.dailyNewMemberCount[groupId],
-        messageCount: this.dailyMessageCount[groupId],
-        // active member means anyone that send at least 1 message in group
-        activeMemberCount: this.activeMemberCount[groupId],
-        totalMemberCount
-       };
-       console.info('data', data);
-       await this.prisma.telegramGroupDailyStat.create({
-           data
-       });
-       this._resetCounter(groupId);
-   }
-
     @Cron(CronExpression.EVERY_DAY_AT_1AM)
-    logAllTelegramGroupDailyStats() {
-        /** @TODO use create many instead */
-        this.listeningChats.forEach(this._logTelegramGroupDailyStat.bind(this));
+    async logAllTelegramGroupDailyStats() {
+        const totalMemberCounts = await Promise.all(this.listeningChats.map(this.countGroupMembers));
+        const groupStats = this.listeningChats.map((groupId, idx) => ({
+            groupId,
+            newMemberCount: this.dailyNewMemberCount[groupId],
+            messageCount: this.dailyMessageCount[groupId],
+            // active member means anyone that send at least 1 message in group
+            activeMemberCount: this.activeMemberCount[groupId],
+            totalMemberCount: totalMemberCounts[idx]
+        }))
+        await this.prisma.telegramGroupDailyStat.createMany({
+            data: groupStats
+        });
+        this.listeningChats.forEach(this._resetCounter);
     }
 }
