@@ -6,16 +6,16 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model TelegramChatMember {
   id    Int @default(autoincrement()) @id
   // telegram user's id
-  userId Int
+  userId Decimal @db.Decimal(65, 0)
   // group's id
-  groupId Int
+  groupId Decimal @db.Decimal(65, 0)
 
   joinAt DateTime @default(now())
 
@@ -27,7 +27,7 @@ model TelegramChatMember {
 model TelegramGroupDailyStat {
   id    Int     @default(autoincrement()) @id
   // telegram group id
-  groupId Int
+  groupId Decimal @db.Decimal(65, 0)
   date  DateTime @default(now())
 
   newMemberCount Int
