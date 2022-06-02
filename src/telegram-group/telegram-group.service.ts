@@ -85,12 +85,14 @@ export class TelegramGroupService {
         this.bot.on('left_chat_member', async (ctx) => {
             const target = await this.prisma.telegramChatMember.findFirst({
                 where: { userId: ctx.message.from.id, groupId: ctx.message.chat.id }
-            })
-            await this.prisma.telegramChatMember.delete({
-                where: {
-                    id: target.id
-                }
             });
+            /** ignore deletion if not exist */
+            if (target)
+                await this.prisma.telegramChatMember.delete({
+                    where: {
+                        id: target.id
+                    }
+                });
         })
     }
 
