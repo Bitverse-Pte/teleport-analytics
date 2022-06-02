@@ -19,6 +19,19 @@ export class TelegramGroupService {
                 agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
             }
         });
+        this.bot.use(async (ctx, next) => {
+            const currentChatId = ctx.chat.id;
+            if (!process.env.TELEGRAM_LISTENING_GROUP_IDS.split(',').map(n => Number(n)).includes(currentChatId)) {
+                this.logger.warn(`attempt to use bot in chat id ${currentChatId}, will be ignored.`);
+                // skip if this chat was not listening
+                return;
+            }
+            // skip if it was bot message
+            if (ctx.message.from.is_bot) return;
+            this.logger.debug('ctx.message', ctx.message);
+            // fallthrough here if no problems at all!
+            await next();
+        });
         this._registerListener();
         this.bot.launch();
         // Enable graceful stop
@@ -38,14 +51,7 @@ export class TelegramGroupService {
 
     private async _listenOnGeneralMessage(type: ListeningMessageTypes) {
         this.bot.on(type, async (ctx) => {
-            console.log('ctx.message', ctx.message);
-            // skip if it was bot message
-            if (ctx.message.from.is_bot) return;
             const chatId = ctx.message.chat.id;
-            if (!process.env.TELEGRAM_LISTENING_GROUP_IDS.split(',').map(s => Number(s) * -1).includes(chatId)) {
-                // skip if this chat was not listening
-                return;
-            }
             const userId = ctx.message.from.id;
             await this.addMessageCountForUser(userId, chatId, type, ctx.message.date);
         });
