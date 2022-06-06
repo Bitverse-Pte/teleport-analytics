@@ -3,6 +3,8 @@ import { Telegraf } from 'telegraf';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { EmailService } from 'src/email/email.service';
+import { getYesterday } from 'src/utils/date';
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
@@ -23,7 +25,8 @@ export class TelegramGroupService {
     private listeningChats: number[] = [];
 
     constructor(
-        private prisma: PrismaService
+        private prisma: PrismaService,
+        private emailService: EmailService
     ) {
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
             telegram: {
@@ -168,15 +171,17 @@ export class TelegramGroupService {
    }
 
    /**
-    * Daily jobs
+    * Save yesterday's stat and reset the counter
     */
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async logAllTelegramGroupDailyStats() {
         const totalMemberCounts = await Promise.all(this.listeningChats.map(this.countGroupMembers));
+        const yesterday = getYesterday();
         const groupStats = this.listeningChats.map((groupId, idx) => ({
             groupId,
             newMemberCount: this.dailyNewMemberCount[groupId],
             messageCount: this.dailyMessageCount[groupId],
+            date: yesterday,
             // active member means anyone that send at least 1 message in group
             activeMemberCount: this.activeMemberCount[groupId],
             totalMemberCount: totalMemberCounts[idx]
@@ -186,4 +191,31 @@ export class TelegramGroupService {
         });
         this.listeningChats.forEach(this._resetCounter);
     }
+
+   @Cron(CronExpression.EVERY_DAY_AT_8AM)
+   async sendDailyStats() {
+    let text = ' Group ID, Active Member, Total Message(s), New Member, Total Member  \n';
+    const yesterday = getYesterday();
+    const entries = await this.prisma.telegramGroupDailyStat.findMany({
+        where: {
+            date: yesterday
+        }
+    })
+    entries.forEach((entry) => {
+        text += `${entry.groupId} ${entry.activeMemberCount} ${entry.messageCount} ${entry.newMemberCount} ${entry.totalMemberCount} \n`
+    });
+    try {
+        // send mail with defined transport object
+        let info = await this.emailService.transporter.sendMail({
+            from: `"Analytic Bot by Frank Wei👻" <${process.env.MAIL_ACCOUNT}>`, // sender address
+            to: `${process.env.MAIL_ACCOUNT}`, // list of receivers
+            subject: "Telegram Group Stats", // Subject line
+            text, // plain text body
+        });
+
+        console.log("Message sent: %s", info.messageId);
+    } catch (error) {
+        this.logger.error('sendAnalytic::error: ', error);
+    }
+   }
 }
