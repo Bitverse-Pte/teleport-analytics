@@ -156,11 +156,15 @@ export class TelegramGroupService {
            });
        } else {
             const isLastSeenToday = member.lastSeen.toDateString() == messageSentAt.toDateString();
-            const updateData: Partial<typeof member> = { messageCount: member.messageCount + 1, lastSeen: messageSentAt };
+            const updateData: any = { messageCount: {
+                increment: 1
+            }, lastSeen: messageSentAt };
             console.debug('member.lastSeen', member.lastSeen);
             console.debug('isLastSeenToday', isLastSeenToday);
             if (!isLastSeenToday) {
-                updateData.activeDays = member.activeDays + 1;
+                updateData.activeDays = {
+                    increment: 1
+                };
                 this.activeMemberCount[chatId] += 1;
             }
             await this.prisma.telegramChatMember.update({
