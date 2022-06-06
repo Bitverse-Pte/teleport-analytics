@@ -164,7 +164,7 @@ export class TelegramGroupService {
    /**
     * Daily jobs
     */
-    @Cron(CronExpression.EVERY_DAY_AT_1AM)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async logAllTelegramGroupDailyStats() {
         const totalMemberCounts = await Promise.all(this.listeningChats.map(this.countGroupMembers));
         const groupStats = this.listeningChats.map((groupId, idx) => ({

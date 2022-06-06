@@ -21,10 +21,7 @@ export class EmailService {
           });
     }
 
-    @Cron('0 0 0 * * *', {
-        // use GMT
-        utcOffset: 0
-    })
+    @Cron(CronExpression.EVERY_DAY_AT_8AM)
     async sendAnalytic() {
         this.logger.debug('sending email');
 
