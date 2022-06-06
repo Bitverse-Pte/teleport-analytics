@@ -36,6 +36,7 @@ model TelegramGroupDailyStat {
   date  DateTime @default(now())
 
   newMemberCount Int
+  activeNewMemberCount Int
   messageCount Int
   // active member means anyone that send at least 1 message in group
   activeMemberCount Int
