@@ -177,6 +177,23 @@ export class TelegramGroupService {
     async logAllTelegramGroupDailyStats() {
         const totalMemberCounts = await Promise.all(this.listeningChats.map(this.countGroupMembers));
         const yesterday = getYesterday();
+        const activeNewMembers = await this.prisma.telegramChatMember.findMany({
+            where: {
+                activeDays: 1,
+                joinAt: {
+                    gte: yesterday
+                }
+            }
+        });
+        const activeNewMembersCounter: Record<number, number> = {};
+        activeNewMembers.forEach((user) => {
+            const chatId = user.groupId.toNumber();
+            if (activeNewMembersCounter[chatId]) {
+                activeNewMembersCounter[chatId] += 1;
+            } else {
+                activeNewMembersCounter[chatId] = 1;
+            }
+        });
         const groupStats = this.listeningChats.map((groupId, idx) => ({
             groupId,
             newMemberCount: this.dailyNewMemberCount[groupId],
@@ -184,6 +201,7 @@ export class TelegramGroupService {
             date: yesterday,
             // active member means anyone that send at least 1 message in group
             activeMemberCount: this.activeMemberCount[groupId],
+            activeNewMemberCount: activeNewMembersCounter[groupId] || 0,
             totalMemberCount: totalMemberCounts[idx]
         }))
         await this.prisma.telegramGroupDailyStat.createMany({
@@ -194,7 +212,7 @@ export class TelegramGroupService {
 
    @Cron(CronExpression.EVERY_DAY_AT_8AM)
    async sendDailyStats() {
-    let text = ' Group ID, Active Member, Total Message(s), New Member, Total Member  \n';
+    let text = ' Group ID, Active Member, Total Message(s), New Member, Conversion Rate, Total Member  \n';
     const yesterday = getYesterday();
     const entries = await this.prisma.telegramGroupDailyStat.findMany({
         where: {
@@ -202,7 +220,8 @@ export class TelegramGroupService {
         }
     })
     entries.forEach((entry) => {
-        text += `${entry.groupId} ${entry.activeMemberCount} ${entry.messageCount} ${entry.newMemberCount} ${entry.totalMemberCount} \n`
+        const newMemberConversionRate = entry.activeNewMemberCount / entry.newMemberCount;
+        text += `${entry.groupId} ${entry.activeMemberCount} ${entry.messageCount} ${entry.newMemberCount} ${newMemberConversionRate} ${entry.totalMemberCount} \n`
     });
     try {
         // send mail with defined transport object
