@@ -10,6 +10,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model TelegramGroup {
+  id    Int @default(autoincrement()) @id
+  chatId Decimal @db.Decimal(65, 0)
+}
+
 model TelegramChatMember {
   id    Int @default(autoincrement()) @id
   // telegram user's id

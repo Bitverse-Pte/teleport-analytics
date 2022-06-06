@@ -30,7 +30,13 @@ export class TelegramGroupService {
                 agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
             }
         });
-        this.listeningChats = process.env.TELEGRAM_LISTENING_GROUP_IDS.split(',').map(n => Number(n));
+       this._init();
+    }
+
+    private async _init() {
+        const listeningChats = await this.prisma.telegramGroup.findMany();
+        this.listeningChats = listeningChats.map(c => c.chatId.toNumber());
+        this.logger.debug(`Listening chats ${this.listeningChats.join(', ')}`);
         this.listeningChats.forEach(this._resetCounter.bind(this));
         this.bot.use(async (ctx, next) => {
             const currentChatId = ctx.chat.id;
