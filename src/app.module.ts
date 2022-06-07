@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmailModule } from './email/email.module';
 import { TelegramGroupModule } from './telegram-group/telegram-group.module';
+import { TwitterModule } from './twitter-ads/twitter.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -11,6 +12,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ScheduleModule.forRoot(),
     EmailModule,
     TelegramGroupModule,
+    TwitterModule,
     PrismaModule
   ],
   controllers: [AppController],
