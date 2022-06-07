@@ -5,10 +5,15 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/email/email.service';
 import { getYesterday } from 'src/utils/date';
+import type { Message } from 'telegraf/typings/core/types/typegram';
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
 
+type MessageQueueItem = {
+    type: ListeningMessageTypes;
+    msg: Message;
+}
 @Injectable()
 export class TelegramGroupService {
     private readonly logger = new Logger(TelegramGroupService.name);
@@ -23,6 +28,8 @@ export class TelegramGroupService {
     private dailyMessageCount: Record<number, number> = {};
     private activeMemberCount: Record<number, number> = {};
     private listeningChats: number[] = [];
+
+    private messageToBeHandled: MessageQueueItem[] = [];
 
     constructor(
         private prisma: PrismaService,
@@ -105,11 +112,12 @@ export class TelegramGroupService {
         })
     }
 
-    private async _listenOnGeneralMessage(type: ListeningMessageTypes) {
-        this.bot.on(type, async (ctx) => {
-            const chatId = ctx.message.chat.id;
-            const userId = ctx.message.from.id;
-            await this.addMessageCountForUser(userId, chatId, type, ctx.message.date);
+    private _listenOnGeneralMessage(type: ListeningMessageTypes) {
+        this.bot.on(type, (ctx) => {
+            this.messageToBeHandled.push({
+                type,
+                msg: ctx.message
+            })
         });
     }
 
@@ -124,55 +132,115 @@ export class TelegramGroupService {
         }
         return this.bot.telegram.getChatMembersCount(groupId);
     }
+
     /**
-     * Add message count for user
+     * Update message count or create a chatmember in DB
+     * @param chatId the telegram id of group chat
+     * @param userId the telegram id of user
+     * @param newMessageCount qty of new message that user was sent
+     * @returns a updated or created chat member
      */
-   async addMessageCountForUser(userId: number, chatId: number, type: ListeningMessageTypes, date: number) {
-       this.logger.debug('addMessageCountForUser', {
-           userId,
-           chatId,
-           type,
-           date
-       });
-       const messageSentAt = new Date(date * 1000);
-       console.debug('messageSentAt', messageSentAt);
-       let member = await this.prisma.telegramChatMember.findFirst({
-           where: {
-               userId,
-               groupId: chatId
-           }
-       });
-       this.dailyMessageCount[chatId] += 1;
-       if (!member) {
-           this.dailyNewMemberCount[chatId] += 1;
-           member = await this.prisma.telegramChatMember.create({
-               data: {
-                   userId,
-                   groupId: chatId,
-                   messageCount: 1,
-                   activeDays: 1,
-                   lastSeen: messageSentAt
-               }
-           });
-       } else {
-            const isLastSeenToday = member.lastSeen.toDateString() == messageSentAt.toDateString();
+    private async _upsertMemberForMessage(chatId: number, userId: number, newMessageCount: number) {
+        const nowSeen = new Date();
+
+        let member = await this.prisma.telegramChatMember.findFirst({
+            where: {
+                userId,
+                groupId: chatId
+            }
+        });
+
+        if (!member) {
+            /**
+             * Create new Member if not exist
+             */
+            this.dailyNewMemberCount[chatId] += 1;
+            return this.prisma.telegramChatMember.create({
+                data: {
+                    userId,
+                    groupId: chatId,
+                    messageCount: newMessageCount,
+                    activeDays: 1,
+                    lastSeen: nowSeen
+                }
+            })
+        } else {
+            /**
+             * Member exist in DB, update this entity
+             */
+            const isLastSeenToday = member.lastSeen.toDateString() == nowSeen.toDateString();
             const updateData: any = { messageCount: {
-                increment: 1
-            }, lastSeen: messageSentAt };
-            console.debug('member.lastSeen', member.lastSeen);
-            console.debug('isLastSeenToday', isLastSeenToday);
+                increment: newMessageCount
+            }, lastSeen: nowSeen };
             if (!isLastSeenToday) {
                 updateData.activeDays = {
                     increment: 1
                 };
                 this.activeMemberCount[chatId] += 1;
             }
-            await this.prisma.telegramChatMember.update({
+            return this.prisma.telegramChatMember.update({
                 where: { id: member.id },
                 data: updateData
             });
-       }
-   }
+        };
+    }
+
+    /** Work as a lock */
+    private isMessageQueueHandling = false;
+
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handleMessageQueue() {
+        if (this.isMessageQueueHandling) {
+            this.logger.warn(`handleMessageQueue was skipped since the lock was on`);
+            return;
+        }
+        this.isMessageQueueHandling = true;
+        try {
+            const { messageToBeHandled } = this;
+            const messageCount: Record<number, Record<number, number>> = {};
+            for (const msg of messageToBeHandled) {
+                /**
+                 * open object if not exist
+                 */
+                if (!messageCount[msg.msg.chat.id]) messageCount[msg.msg.chat.id] = {};
+                /**
+                 * increment on counter
+                 */
+                if (messageCount[msg.msg.chat.id][msg.msg.from.id]) {
+                    messageCount[msg.msg.chat.id][msg.msg.from.id] += 1;
+                } else {
+                    messageCount[msg.msg.chat.id][msg.msg.from.id] = 1;
+                }
+            }
+            /**
+             * Update dailyMessageCount[chatId]
+             */
+            for (const chatId in messageCount) {
+                if (Object.prototype.hasOwnProperty.call(messageCount, chatId)) {
+                    const element = messageCount[chatId];
+                    const newMsgQtyInGroup = Object.values(element).reduce((prevVal, curVal) => prevVal + curVal);
+                    this.dailyMessageCount[chatId] += newMsgQtyInGroup;
+                }
+            }
+            /** Update ChatMember stat */
+            for (const chatId in messageCount) {
+                for (const userId in messageCount[chatId]) {
+                    const userNewMsgInGroupCount = messageCount[chatId][userId];
+                    await this._upsertMemberForMessage(Number(chatId), Number(userId), userNewMsgInGroupCount)
+                }
+            }
+
+            // clear the queue after finish
+            this.messageToBeHandled = [];
+        } catch (error) {
+            this.logger.error(`handleMessageQueue::Error happened:`, error);
+        } finally {
+            /**
+             * Release the lock no matter what
+             */
+            this.isMessageQueueHandling = false;
+        }
+    }
 
    /**
     * Save yesterday's stat and reset the counter
