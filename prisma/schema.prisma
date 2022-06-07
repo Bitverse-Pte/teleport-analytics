@@ -43,6 +43,63 @@ model TelegramGroupDailyStat {
   totalMemberCount Int
 }
 
-model TwitterEntity {
+model TwitterAccount {
     id Int @default(autoincrement()) @id
+    name String
+    accountId String @unique
+}
+
+model TwitterAccountRealTimeStat {
+    id Int @default(autoincrement()) @id
+    // TwitterAccount id
+    twitterAccountId Int
+    date DateTime @default(now())
+    followersCount Int
+}
+
+model TwitterAccountDailyStat {
+    id Int @default(autoincrement()) @id
+    // TwitterAccount id
+    twitterAccountId Int
+    date DateTime @default(now())
+    followersCount Int
+    newFollowersCount Int
+    tweetCount Int
+}
+
+model Tweet {
+    id Int @default(autoincrement()) @id
+    tweetId String
+    // TwitterAccount id
+    twitterAccountId Int
+    createdAt DateTime
+    text String
+}
+
+model TweetsDailyStat {
+    id Int @default(autoincrement()) @id
+    date DateTime @default(now())
+    tweetsCount Int
+    impressions Int
+    retweets Int
+    quoteTweets Int
+    likes Int
+    Replies Int
+    urlLinkClicks Int
+    userProfileClicks Int
+    videoViews Int
+}
+
+model TweetRealTimeStat {
+    id Int @default(autoincrement()) @id
+    tweetID String
+    date DateTime @default(now())
+    impressions Int
+    retweets Int
+    quoteTweets Int
+    likes Int
+    Replies Int
+    urlLinkClicks Int
+    userProfileClicks Int
+    videoViews Int
 }
