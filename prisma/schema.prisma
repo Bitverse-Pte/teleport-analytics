@@ -41,3 +41,7 @@ model TelegramGroupDailyStat {
   activeMemberCount Int
   totalMemberCount Int
 }
+
+model TwitterEntity {
+    id Int @default(autoincrement()) @id
+}
