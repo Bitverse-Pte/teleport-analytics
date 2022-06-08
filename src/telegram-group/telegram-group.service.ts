@@ -250,7 +250,7 @@ export class TelegramGroupService {
     */
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async logAllTelegramGroupDailyStats() {
-        const totalMemberCounts = await Promise.all(this.listeningChats.map(this.countGroupMembers));
+        const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
         const yesterday = getYesterday();
         const activeNewMembers = await this.prisma.telegramChatMember.findMany({
             where: {
