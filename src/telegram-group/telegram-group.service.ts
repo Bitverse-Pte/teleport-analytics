@@ -72,8 +72,8 @@ export class TelegramGroupService {
     }
 
     private _resetCounter(chatId: number) {
-        console.debug('chatId', chatId);
-        console.info(`Before: this.dailyNewMemberCount ${this.dailyNewMemberCount[chatId]} this.dailyMessageCount ${this.dailyMessageCount[chatId]} this.activeMemberCount ${this.activeMemberCount[chatId]}`)
+        this.logger.debug('_resetCounter::chatId' + chatId);
+        this.logger.log(`Before: this.dailyNewMemberCount ${this.dailyNewMemberCount[chatId]} this.dailyMessageCount ${this.dailyMessageCount[chatId]} this.activeMemberCount ${this.activeMemberCount[chatId]}`)
         this.dailyNewMemberCount[chatId] = 0;
         this.dailyMessageCount[chatId] = 0;
         this.activeMemberCount[chatId] = 0;
@@ -269,20 +269,23 @@ export class TelegramGroupService {
                 activeNewMembersCounter[chatId] = 1;
             }
         });
-        const groupStats = this.listeningChats.map((groupId, idx) => ({
-            groupId,
-            newMemberCount: this.dailyNewMemberCount[groupId],
-            messageCount: this.dailyMessageCount[groupId],
-            date: yesterday,
-            // active member means anyone that send at least 1 message in group
-            activeMemberCount: this.activeMemberCount[groupId],
-            activeNewMemberCount: activeNewMembersCounter[groupId] || 0,
-            totalMemberCount: totalMemberCounts[idx]
-        }))
+        this.logger.debug('logAllTelegramGroupDailyStats::counting groupStats');
+        const groupStats = this.listeningChats.map((groupId, idx) => {
+            return {
+                groupId,
+                newMemberCount: this.dailyNewMemberCount[groupId],
+                messageCount: this.dailyMessageCount[groupId],
+                date: yesterday,
+                // active member means anyone that send at least 1 message in group
+                activeMemberCount: this.activeMemberCount[groupId],
+                activeNewMemberCount: activeNewMembersCounter[groupId] || 0,
+                totalMemberCount: totalMemberCounts[idx]
+            };
+        })
         await this.prisma.telegramGroupDailyStat.createMany({
             data: groupStats
         });
-        this.listeningChats.forEach(this._resetCounter);
+        this.listeningChats.forEach(this._resetCounter.bind(this));
     }
 
    @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -307,7 +310,7 @@ export class TelegramGroupService {
             text, // plain text body
         });
 
-        console.log("Message sent: %s", info.messageId);
+        this.logger.log("Message sent: %s", info.messageId);
     } catch (error) {
         this.logger.error('sendAnalytic::error: ', error);
     }
