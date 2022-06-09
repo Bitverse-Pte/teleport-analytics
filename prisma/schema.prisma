@@ -21,7 +21,9 @@ model DiscordGuildMember {
   guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
   discordGuildId String
   messageQty     Int
-  lastSeen       DateTime @default(now()) @updatedAt
+  lastSeen       DateTime     @default(now()) @updatedAt
+
+  joinedChannels DiscordChannel[]
 }
 
 enum DiscordChannelType {
@@ -49,9 +51,11 @@ model DiscordChannel {
   guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
   discordGuildId String
 
-  name           String
-  type           DiscordChannelType
-  createdAt      DateTime
+  name      String
+  type      DiscordChannelType
+  createdAt DateTime
+
+  members DiscordGuildMember[]
 }
 
 model TelegramGroup {

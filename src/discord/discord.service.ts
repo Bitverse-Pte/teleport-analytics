@@ -58,14 +58,25 @@ export class DiscordService {
         }) 
 
         this.client.on('channelCreate', async (channel) => {
+            this.logger.debug('channelCreate triggered');
             const guildInfo = await this.findGuildInDatabase(channel.guildId);
             // ignore if not exist
             if (!guildInfo) return;
-
+            const guildMemberInChannels = channel.members.map((m) => ({
+                id: m.id,
+                discordGuildId: m.guild.id
+            }));
+            
             await this.prisma.discordChannel.create({
                 data: {
                     id: channel.id,
-                    discordGuildId: channel.guildId
+                    name: channel.name,
+                    type: channel.type,
+                    createdAt: channel.createdAt,
+                    discordGuildId: channel.guildId,
+                    members: {
+                        connect: guildMemberInChannels
+                    }
                 }
             });
             this.logger.debug(`New Channel "${channel.name}"(${channel.id}) created in Guild ${channel.guild.name}`);
