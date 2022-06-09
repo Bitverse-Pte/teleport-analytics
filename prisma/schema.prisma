@@ -24,10 +24,34 @@ model DiscordGuildMember {
   lastSeen       DateTime @default(now()) @updatedAt
 }
 
+enum DiscordChannelType {
+  GUILD_TEXT
+  DM
+  GUILD_VOICE
+  GROUP_DM
+  GUILD_CATEGORY
+  GUILD_NEWS
+  GUILD_STORE
+  // ...Array(3).fill(null),
+  UNUSED1
+  UNUSED2
+  UNUSED3
+  // 10
+  GUILD_NEWS_THREAD
+  GUILD_PUBLIC_THREAD
+  GUILD_PRIVATE_THREAD
+  GUILD_STAGE_VOICE
+  GUILD_DIRECTORY
+}
+
 model DiscordChannel {
   id             String       @id
   guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
   discordGuildId String
+
+  name           String
+  type           DiscordChannelType
+  createdAt      DateTime
 }
 
 model TelegramGroup {
@@ -37,9 +61,9 @@ model TelegramGroup {
 
 model TelegramChatMember {
   id    Int @default(autoincrement()) @id
-  // telegram user's id
+  // telegram users id
   userId Decimal @db.Decimal(65, 0)
-  // group's id
+  // groups id
   groupId Decimal @db.Decimal(65, 0)
 
   joinAt DateTime @default(now())
