@@ -59,6 +59,8 @@ export class TelegramGroupService {
             if (ctx.message.from.is_bot) return;
             // skip if from id was not number
             if (isNaN(ctx.message.from.id)) return;
+            // skip if no message (like edited_message)
+            if (!ctx.message) return;
 
             this.logger.debug('ctx.message', ctx.message);
             // fallthrough here if no problems at all!
