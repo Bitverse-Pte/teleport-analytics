@@ -29,7 +29,42 @@ export class DiscordService {
             // maybe avaliable after aug 31 2022
             // Intents.FLAGS.MESSAGE_CONTENT
         ] });
-        this._setupListeners()
+        this._setupListeners();
+        this.client.on('ready', this._afterDiscordBotReady.bind(this));
+    }
+
+    private async _afterDiscordBotReady() {
+        this.logger.debug('Discord bot is ready');
+        /**
+         * Here we import all guild data and it's members
+         */
+        const listeningGuildInfos = await this.findGuildsInDatabase();
+        const matchedGuilds = listeningGuildInfos.map((ginfo) => this.client.guilds.cache.get(ginfo.id));
+
+        for (const guild of matchedGuilds) {
+            const allGuildMembers = guild.members.valueOf().toJSON();
+            const allGuildMemberIds = allGuildMembers.map(m => m.id);
+            const recordedGuildMembers = await this.prisma.discordGuildMember.findMany({
+                where: {
+                    AND: {
+                        id: {
+                            in: allGuildMemberIds
+                        },
+                        discordGuildId: guild.id
+                    }
+                }
+            });
+            const recordedGuildMemberIds = recordedGuildMembers.map(m => m.id);
+            const newGuildMembers = allGuildMembers.filter(member => !recordedGuildMemberIds.includes(member.id));
+            await this.prisma.discordGuildMember.createMany({
+                data: newGuildMembers.map(newMember => ({
+                    id: newMember.id,
+                    discordGuildId: guild.id,
+                    messageQty: 0
+                }))
+            });
+            this.logger.debug(`Create ${newGuildMembers.length} users for Guild ${guild.name}`);
+        }
     }
 
     private async _setupListeners() {
