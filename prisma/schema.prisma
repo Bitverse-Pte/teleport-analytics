@@ -48,6 +48,9 @@ model TwitterAccount {
     name String
     username String
     accountId String @unique
+    accessToken String
+    refreshToken String
+    expiresAt DateTime
 }
 
 model TwitterAccountRealTimeStat {
