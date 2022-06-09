@@ -99,7 +99,6 @@ export class DiscordService {
             if (!guildInfo) return;
             const guildMemberInChannels = channel.members.map((m) => ({
                 id: m.id,
-                discordGuildId: m.guild.id
             }));
             
             await this.prisma.discordChannel.create({
