@@ -4,7 +4,6 @@ import {TwitterService} from "./twitter.service";
 import {TwitterController} from "./twitter.controller";
 import {EmailModule} from "../email/email.module";
 
-
 @Module({
     imports: [PrismaModule, EmailModule],
     controllers: [TwitterController],

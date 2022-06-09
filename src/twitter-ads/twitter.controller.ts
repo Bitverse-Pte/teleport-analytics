@@ -7,7 +7,7 @@ export class TwitterController {
 
     @Get('/setAccount')
     async setAccount(@Query('name') name) {
-        await this.twitterService.setAccount(name)
+        await this.twitterService.apiSetAccount(name)
         return
     }
 }

@@ -53,9 +53,12 @@ model TwitterAccount {
 model TwitterAccountRealTimeStat {
     id Int @default(autoincrement()) @id
     // TwitterAccount id
-    twitterAccountId Int
+    twitterAccountId String
     date DateTime @default(now())
     followersCount Int
+    followingCount Int
+    tweetCount Int
+    listedCount Int
 }
 
 model TwitterAccountDailyStat {
@@ -93,13 +96,13 @@ model TweetsDailyStat {
 
 model TweetRealTimeStat {
     id Int @default(autoincrement()) @id
-    tweetID String
+    tweetId String
     date DateTime @default(now())
     impressions Int
     retweets Int
     quoteTweets Int
     likes Int
-    Replies Int
+    replies Int
     urlLinkClicks Int
     userProfileClicks Int
     videoViews Int
