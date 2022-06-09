@@ -1,5 +1,7 @@
 import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
 import { Client, Intents } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 require('dotenv').config();
@@ -125,5 +127,51 @@ export class DiscordService {
 
         // after finished
         this.client.login(process.env.DISCORD_BOT_TOKEN);
+    }
+
+    findGuildInDatabase(id: string) {
+        return this.prisma.discordGuild.findFirst({
+            where: { id }
+        });
+    }
+
+    findGuildsInDatabase() {
+        /** return all listening guilds */
+        return this.prisma.discordGuild.findMany();
+    }
+
+    @Cron(CronExpression.EVERY_MINUTE)
+    async syncChannelsFromGuilds() {
+        const guildsInfo = await this.findGuildsInDatabase();
+        for (const { id: guildId } of guildsInfo) {
+            await this.syncChannelsFromGuild(guildId);
+        }
+    }
+
+    async syncChannelsFromGuild(guildId: string) {
+        const guild = this.client.guilds.cache.get(guildId);
+        const guildChannels = guild.channels.valueOf();
+        const channelIds = guildChannels.map((v) => v.id);
+        const foundChannelInfos = await this.prisma.discordChannel.findMany({
+            where: {
+                id: {
+                    in: channelIds
+                }
+            }
+        });
+        const foundChannelIds = foundChannelInfos.map(c => c.id);
+        console.debug('foundChannelIds', foundChannelIds);
+        const notInsertedChannels = guildChannels.filter((guild) => !foundChannelIds.includes(guild.id)).toJSON();
+
+        console.debug('notInsertedChannels', notInsertedChannels);
+        await this.prisma.discordChannel.createMany({
+            data: notInsertedChannels.map(channel => ({
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                createdAt: channel.createdAt,
+                discordGuildId: guildId
+            }))
+        })
     }
 }
