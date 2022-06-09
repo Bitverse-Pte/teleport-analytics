@@ -1,17 +1,15 @@
 import {Logger} from '@nestjs/common';
 import {PrismaService} from '../prisma/prisma.service';
-const TwitterAdsAPI = require('twitter-ads');
+import {Cron, CronExpression} from "@nestjs/schedule";
+import {Client} from "twitter-api-sdk";
+import {PrismaClient} from "@prisma/client";
+
+const client = new Client(process.env.TWITTER_BEARER_TOKEN)
+
+const prisma = new PrismaClient()
 
 export class TwitterService {
     private readonly logger = new Logger(TwitterService.name);
-    private client = new TwitterAdsAPI({
-        consumer_key: process.env.TWITTER_CONSUMER_KEY,
-        consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-        access_token: process.env.TWITTER_ACCESS_TOKEN,
-        access_token_secret: process.env.TWITTER_ACCESS_SECRET,
-        sandbox: process.env.TWITTER_SANDBOX,
-        api_version: process.env.TWITTER_API_VERSION
-    })
 
     constructor(
         private prisma: PrismaService
@@ -20,11 +18,57 @@ export class TwitterService {
     }
 
     private async _init() {
-        this.client.get('accounts/:account_id', {account_id: 'xxx'}, function (error, resp, body) {
-            if (error) {
-                return console.error(error)
-            }
+        const a = this.prisma.twitterAccount.findFirst()
+        console.log(a)
+        await this.getUserInfo()
+    }
+
+    async getUserInfo() {
+        console.log(1)
+        const resp = await client.users.findUsersById({
+            ids: ["1490559369498734593"],
+            "user.fields": ["public_metrics"]
         })
+        console.log(2, resp)
+        for await (const account of resp.data) {
+            console.log(account.name, account.id)
+            console.log(account.public_metrics)
+        }
+    }
+
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async syncAccountData() {
+        this.logger.debug('start sync account data')
+        const accounts = await this.prisma.twitterAccount.findMany();
+
+    }
+
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async logTwitterDailyStat() {
+        this.logger.debug('start log daily info')
+    }
+
+    async setAccount(username: string): Promise<string> {
+        console.log(username)
+        const resp = await client.users.findUserByUsername(
+            username,
+            {
+                "user.fields": ["public_metrics"]
+            }
+        )
+        const accountId = resp.data.id
+        const name = resp.data.name
+        if (resp.data.id !== "") {
+            const result = this.prisma.twitterAccount.create({
+                data: {
+                    name,
+                    username,
+                    accountId,
+                }
+            })
+            this.logger.debug(`create new account ${result}`)
+        }
+        return ""
     }
 
 }

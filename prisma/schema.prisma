@@ -46,6 +46,7 @@ model TelegramGroupDailyStat {
 model TwitterAccount {
     id Int @default(autoincrement()) @id
     name String
+    username String
     accountId String @unique
 }
 

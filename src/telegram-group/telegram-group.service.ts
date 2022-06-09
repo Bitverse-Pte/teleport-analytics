@@ -21,7 +21,7 @@ export class TelegramGroupService {
     private bot: Telegraf;
 
     /**
-     * 
+     *
      * daily counters
      */
     private dailyNewMemberCount: Record<number, number> = {};
