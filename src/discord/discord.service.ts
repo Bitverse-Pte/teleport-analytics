@@ -67,6 +67,11 @@ export class DiscordService {
             });
             this.logger.debug(`Create ${newGuildMembers.length} users for Guild ${guild.name}`);
         }
+
+        /**
+         * After guilds are saved to DB, we sync the channels
+         */
+        this.syncChannelsFromGuilds()
     }
 
     private async _setupListeners() {
@@ -140,7 +145,6 @@ export class DiscordService {
         return this.prisma.discordGuild.findMany();
     }
 
-    @Cron(CronExpression.EVERY_MINUTE)
     async syncChannelsFromGuilds() {
         const guildsInfo = await this.findGuildsInDatabase();
         for (const { id: guildId } of guildsInfo) {
