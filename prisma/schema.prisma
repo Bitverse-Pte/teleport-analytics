@@ -10,6 +10,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model DiscordGuild {
+  id       String               @id
+  channels DiscordChannel[]
+  members  DiscordGuildMember[]
+}
+
+model DiscordGuildMember {
+  id             String       @id
+  guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
+  discordGuildId String
+  messageQty     Int
+  lastSeen       DateTime @default(now()) @updatedAt
+}
+
+model DiscordChannel {
+  id             String       @id
+  guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
+  discordGuildId String
+}
+
 model TelegramGroup {
   id    Int @default(autoincrement()) @id
   chatId Decimal @db.Decimal(65, 0)
