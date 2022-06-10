@@ -2,7 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
-import { Client, Intents } from 'discord.js';
+import { Client, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 require('dotenv').config();
 
@@ -78,57 +78,19 @@ export class DiscordService {
         /**
          * Listening Messages
          */
-        this.client.on('messageCreate', async (msg) => {
-            this.logger.debug('_setupListeners::onMessage');
-            console.debug('onMessage::msg', msg)
-            /** ignore on bot msg */
-            if (msg.author.bot) return;
-            /** uncle roger coming now */
-            if (msg.content.includes('MSG')) {
-                await msg.reply('Fuiyoh, MSG\'s the BEST');
-            } else {
-                await msg.reply('haiyaa');
-            }
-        })
+        this.client.on('messageCreate', this.handleNewMessage.bind(this));
 
         /**
          * Listening new member join to guild
          */
-        this.client.on('guildMemberAdd', (e) => {
-            this.logger.debug('_setupListeners::guildMemberAdd');
-            console.debug('guildMemberAdd::e:', e);
-        }) 
+        this.client.on('guildMemberAdd', this.handleNewMemberInGuild.bind(this)) 
 
-        this.client.on('channelCreate', async (channel) => {
-            this.logger.debug('channelCreate triggered');
-            const guildInfo = await this.findGuildInDatabase(channel.guildId);
-            // ignore if not exist
-            if (!guildInfo) return;
-            const guildMemberInChannels = channel.members.map((m) => ({
-                id: m.id,
-            }));
-            
-            await this.prisma.discordChannel.create({
-                data: {
-                    id: channel.id,
-                    name: channel.name,
-                    type: channel.type,
-                    createdAt: channel.createdAt,
-                    discordGuildId: channel.guildId,
-                    members: {
-                        connect: guildMemberInChannels
-                    }
-                }
-            });
-            this.logger.debug(`New Channel "${channel.name}"(${channel.id}) created in Guild ${channel.guild.name}`);
-        });
+        this.client.on('channelCreate', this.handleNewChannelCreatedInGuild.bind(this));
+
         /**
          * Listening member's presence
          */
-        this.client.on('presenceUpdate', (e) => {
-            this.logger.debug('_setupListeners::presenceUpdate');
-            console.debug('presenceUpdate::e:', e);
-        })
+        this.client.on('presenceUpdate', this.handleMemberPresenceUpdate.bind(this));
 
         // after finished
         this.client.login(process.env.DISCORD_BOT_TOKEN);
@@ -144,6 +106,60 @@ export class DiscordService {
         /** return all listening guilds */
         return this.prisma.discordGuild.findMany();
     }
+
+    /**
+     * Listener handlers
+     */
+    async handleNewMessage(msg: Message<boolean>) {
+        this.logger.debug('_setupListeners::onMessage');
+        console.debug('onMessage::msg', msg)
+        /** ignore on bot msg */
+        if (msg.author.bot) return;
+        /** see it's from listening guild */
+        const guildInfo = await this.findGuildInDatabase(msg.guildId);
+        console.debug('guildInfo', guildInfo);
+        if (!guildInfo) {
+            this.logger.warn(`message ignored since from guild ${msg.guildId}`);
+            return;
+        }
+    }
+
+    async handleNewChannelCreatedInGuild(channel: NonThreadGuildBasedChannel) {
+        this.logger.debug('channelCreate triggered');
+        const guildInfo = await this.findGuildInDatabase(channel.guildId);
+        // ignore if not exist
+        if (!guildInfo) return;
+        const guildMemberInChannels = channel.members.map((m) => ({
+            id: m.id,
+        }));
+        
+        await this.prisma.discordChannel.create({
+            data: {
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                createdAt: channel.createdAt,
+                discordGuildId: channel.guildId,
+                members: {
+                    connect: guildMemberInChannels
+                }
+            }
+        });
+        this.logger.debug(`New Channel "${channel.name}"(${channel.id}) created in Guild ${channel.guild.name}`);
+    }
+
+
+    handleNewMemberInGuild(member: GuildMember) {
+        console.debug('handleNewMemberInGuild::member:', member);
+    }
+
+    handleMemberPresenceUpdate(oldPresence: Presence, newPresence: Presence) {
+        this.logger.debug(`handleMemberPresenceUpdate::update ${oldPresence.status} => ${newPresence.status} for ${oldPresence.user.id}`);
+    }
+
+    /**
+     * data syncing
+     */
 
     async syncChannelsFromGuilds() {
         const guildsInfo = await this.findGuildsInDatabase();
