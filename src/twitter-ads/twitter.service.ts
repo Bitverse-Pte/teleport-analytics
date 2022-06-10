@@ -109,6 +109,9 @@ export class TwitterService {
                     exclude: ["replies", "retweets"],
                     "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
                 })
+                if (!resp.data) {
+                    continue
+                }
                 for await (const tweet of resp.data) {
                     await this.insertOrUpdateTweetData(account.accountId, tweet)
                     await this.insertTweetRealTimeData(tweet)
@@ -142,7 +145,9 @@ export class TwitterService {
                     exclude: ["replies", "retweets"],
                     start_time: moment().startOf('day').toISOString(),
                 })
-                console.log(resp)
+                if (!resp.data) {
+                    continue
+                }
                 tweetsCount += resp.data.length
                 for (const one of resp.data) {
                     impressions += one.non_public_metrics.impression_count

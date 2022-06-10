@@ -11,7 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     ScheduleModule.forRoot(),
     EmailModule,
-    // TelegramGroupModule,
+    TelegramGroupModule,
     TwitterModule,
     PrismaModule
   ],
