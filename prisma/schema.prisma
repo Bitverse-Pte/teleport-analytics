@@ -11,9 +11,10 @@ datasource db {
 }
 
 model DiscordGuild {
-  id       String               @id
-  channels DiscordChannel[]
-  members  DiscordGuildMember[]
+  id                String               @id
+  channels          DiscordChannel[]
+  members           DiscordGuildMember[]
+  discordGuildStats DiscordGuildStat[]
 }
 
 model DiscordGuildMember {
@@ -24,6 +25,18 @@ model DiscordGuildMember {
   lastSeen       DateTime     @default(now()) @updatedAt
 
   joinedChannels DiscordChannel[]
+}
+
+model DiscordGuildStat {
+  id Int @id @default(autoincrement())
+
+  guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
+  discordGuildId String
+
+  createdAt DateTime @default(now())
+
+  totalMemberCount  Int @default(0)
+  onlineMemberCount Int @default(0)
 }
 
 enum DiscordChannelType {

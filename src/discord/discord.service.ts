@@ -14,10 +14,6 @@ export class DiscordService {
 
     /** analytic related */
     private dailyNewMemberCount: Record<string, number> = {};
-    private dailyMessageCount: Record<string, number> = {};
-    private activeMemberCount: Record<string, number> = {};
-    /** @TODO listeningChats in DB */
-    private listeningChats: string[] = [];
 
 
     constructor(private readonly prisma: PrismaService) {
@@ -212,28 +208,43 @@ export class DiscordService {
     }
 
     /** Analytic about guild / channel*/
-    getCurrentCountOfGuild(guildId: string): { totalMemberCount: number, onlineMemberCount: number } {
+    async getCurrentCountOfGuild(guildId: string): Promise<{ totalMemberCount: number, onlineMemberCount: number }> {
         const guild = this.client.guilds.cache.get(guildId);
         const totalMemberCount = guild.memberCount;
-        const onlineMemberCount = guild.members.valueOf().filter(m => !['offline', 'invisible'].includes(m.presence.status)).size;
+        const fetchedMembers = await guild.members.fetch({
+            user: guild.members.cache.toJSON(),
+            withPresences: true,
+            force: true,
+        });
+        const onlineMemberCount = fetchedMembers.filter(m => {
+            // if m.presence == null, then it's offline too 😅
+            return m.presence && !['offline', 'invisible'].includes(m.presence?.status)
+        }).size;
         return { totalMemberCount, onlineMemberCount }
     }
 
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_MINUTE)
     async storeCurrentCountOfGuilds() {
         this.logger.debug('Persist Listening Guilds Stats into Database.');
         const guildInfos = await this.findGuildsInDatabase();
 
-        const counts = guildInfos.map(({ id }) => {
+        const counts = await Promise.all(guildInfos.map(({ id }) => {
             return this.getCurrentCountOfGuild(id);
-        });
+        }));
         console.debug('storeCurrentCountOfGuilds::counts', counts);
-        /** @TODO save into DB */
+
+        await this.prisma.discordGuildStat.createMany({
+            data: guildInfos.map(({ id }, idx) => ({
+                discordGuildId: id,
+                totalMemberCount: counts[idx].totalMemberCount,
+                onlineMemberCount: counts[idx].onlineMemberCount
+            }))
+        })
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async storeDailyAnalyticData() {
-
+        /** @TODO  */
     }
 
 
