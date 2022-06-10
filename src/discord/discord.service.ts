@@ -2,7 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
-import { Client, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence } from 'discord.js';
+import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 require('dotenv').config();
 
@@ -107,6 +107,15 @@ export class DiscordService {
         return this.prisma.discordGuild.findMany();
     }
 
+    async throwErrorOnNonListeningGuild(guildId: string) {
+        const guildInfo = await this.findGuildInDatabase(guildId);
+        console.debug('guildInfo', guildInfo);
+        if (!guildInfo) {
+            this.logger.warn(`message ignored since from guild ${guildId}`);
+            throw new Error(`message ignored since from guild ${guildId}`)
+        }
+    }
+
     /**
      * Listener handlers
      */
@@ -116,12 +125,7 @@ export class DiscordService {
         /** ignore on bot msg */
         if (msg.author.bot) return;
         /** see it's from listening guild */
-        const guildInfo = await this.findGuildInDatabase(msg.guildId);
-        console.debug('guildInfo', guildInfo);
-        if (!guildInfo) {
-            this.logger.warn(`message ignored since from guild ${msg.guildId}`);
-            return;
-        }
+        await this.throwErrorOnNonListeningGuild(msg.guildId);
     }
 
     async handleNewChannelCreatedInGuild(channel: NonThreadGuildBasedChannel) {
@@ -160,7 +164,6 @@ export class DiscordService {
     /**
      * data syncing
      */
-
     async syncChannelsFromGuilds() {
         const guildsInfo = await this.findGuildsInDatabase();
         for (const { id: guildId } of guildsInfo) {
@@ -185,13 +188,26 @@ export class DiscordService {
 
         console.debug('notInsertedChannels', notInsertedChannels);
         await this.prisma.discordChannel.createMany({
-            data: notInsertedChannels.map(channel => ({
-                id: channel.id,
-                name: channel.name,
-                type: channel.type,
-                createdAt: channel.createdAt,
-                discordGuildId: guildId
-            }))
+            data: notInsertedChannels.map(channel => {
+                const obj: any = {
+                    id: channel.id,
+                    name: channel.name,
+                    type: channel.type,
+                    createdAt: channel.createdAt,
+                    discordGuildId: guildId,
+                }
+                /** @TODO how to connect guild members? */
+                // const members = (channel.members as ThreadMemberManager).valueOf()?.toJSON() || (channel.members as Collection<string, GuildMember>).toJSON();
+                // console.debug('notInsertedChannels::members', members);
+                // if (members.length > 0) {
+                //     obj.members = {
+                //         connect: members.map((m) => ({
+                //             id: m.id
+                //         }))
+                //     }
+                // }
+                return obj;
+            })
         })
     }
 }
