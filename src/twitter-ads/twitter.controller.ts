@@ -3,7 +3,6 @@ import { TwitterService } from "./twitter.service";
 import { Response } from "express";
 import {auth, Client} from "twitter-api-sdk";
 import {PrismaService} from "../prisma/prisma.service";
-import {configLoader} from "tsconfig-paths/lib/config-loader";
 
 const authClient = new auth.OAuth2User({
     client_id: process.env.TWITTER_CLIENT_ID,
@@ -70,6 +69,8 @@ export class TwitterController {
                         accessToken: resp.token.access_token,
                         refreshToken: resp.token.refresh_token,
                         expiresAt: resp.token.expires_at,
+                        followersCount: 0,
+                        tweetCount: 0,
                     }
                 }).catch((error) => {
                     console.error(error)

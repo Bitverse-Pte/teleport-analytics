@@ -51,6 +51,9 @@ model TwitterAccount {
     accessToken String
     refreshToken String
     expiresAt DateTime
+
+    followersCount Int @default(0)
+    tweetCount Int @default(0)
 }
 
 model TwitterAccountRealTimeStat {
@@ -58,55 +61,74 @@ model TwitterAccountRealTimeStat {
     // TwitterAccount id
     twitterAccountId String
     date DateTime @default(now())
-    followersCount Int
-    followingCount Int
-    tweetCount Int
-    listedCount Int
+    followersCount Int @default(0)
+    followingCount Int @default(0)
+    tweetCount Int @default(0)
+    listedCount Int @default(0)
+
+    @@index([twitterAccountId])
 }
 
 model TwitterAccountDailyStat {
     id Int @default(autoincrement()) @id
     // TwitterAccount id
-    twitterAccountId Int
+    twitterAccountId String
     date DateTime @default(now())
-    followersCount Int
-    newFollowersCount Int
-    tweetCount Int
+    followersCount Int @default(0)
+    newFollowersCount Int @default(0)
+    tweetCount Int @default(0)
+
+     @@index([twitterAccountId])
 }
 
 model Tweet {
     id Int @default(autoincrement()) @id
-    tweetId String
+    tweetId String @unique
     // TwitterAccount id
-    twitterAccountId Int
+    twitterAccountId String
     createdAt DateTime
     text String
+
+    impressions Int @default(0)
+    retweets Int @default(0)
+    quoteTweets Int @default(0)
+    likes Int @default(0)
+    replies Int @default(0)
+    urlLinkClicks Int @default(0)
+    userProfileClicks Int @default(0)
+    videoViews Int @default(0)
+
+     @@index([twitterAccountId, tweetId])
 }
 
 model TweetsDailyStat {
     id Int @default(autoincrement()) @id
     date DateTime @default(now())
-    tweetsCount Int
-    impressions Int
-    retweets Int
-    quoteTweets Int
-    likes Int
-    Replies Int
-    urlLinkClicks Int
-    userProfileClicks Int
-    videoViews Int
+    tweetsCount Int @default(0)
+
+    impressions Int @default(0)
+    retweets Int @default(0)
+    quoteTweets Int @default(0)
+    likes Int @default(0)
+    replies Int @default(0)
+    urlLinkClicks Int @default(0)
+    userProfileClicks Int @default(0)
+    videoViews Int @default(0)
 }
 
 model TweetRealTimeStat {
     id Int @default(autoincrement()) @id
     tweetId String
     date DateTime @default(now())
-    impressions Int
-    retweets Int
-    quoteTweets Int
-    likes Int
-    replies Int
-    urlLinkClicks Int
-    userProfileClicks Int
-    videoViews Int
+
+    impressions Int @default(0)
+    retweets Int @default(0)
+    quoteTweets Int @default(0)
+    likes Int @default(0)
+    replies Int @default(0)
+    urlLinkClicks Int @default(0)
+    userProfileClicks Int @default(0)
+    videoViews Int @default(0)
+
+    @@index([tweetId])
 }
