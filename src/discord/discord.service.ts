@@ -1,5 +1,5 @@
 import { REST } from '@discordjs/rest';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMemberManager } from 'discord.js';
@@ -210,4 +210,31 @@ export class DiscordService {
             })
         })
     }
+
+    /** Analytic about guild / channel*/
+    getCurrentCountOfGuild(guildId: string): { totalMemberCount: number, onlineMemberCount: number } {
+        const guild = this.client.guilds.cache.get(guildId);
+        const totalMemberCount = guild.memberCount;
+        const onlineMemberCount = guild.members.valueOf().filter(m => !['offline', 'invisible'].includes(m.presence.status)).size;
+        return { totalMemberCount, onlineMemberCount }
+    }
+
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async storeCurrentCountOfGuilds() {
+        this.logger.debug('Persist Listening Guilds Stats into Database.');
+        const guildInfos = await this.findGuildsInDatabase();
+
+        const counts = guildInfos.map(({ id }) => {
+            return this.getCurrentCountOfGuild(id);
+        });
+        console.debug('storeCurrentCountOfGuilds::counts', counts);
+        /** @TODO save into DB */
+    }
+
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async storeDailyAnalyticData() {
+
+    }
+
+
 }
