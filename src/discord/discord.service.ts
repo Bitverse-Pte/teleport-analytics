@@ -209,7 +209,8 @@ export class DiscordService {
                 data: {
                     members
                 }
-        })));
+            })
+        }
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -225,7 +226,6 @@ export class DiscordService {
         const guild = this.client.guilds.cache.get(guildId);
         const totalMemberCount = guild.memberCount;
         const fetchedMembers = await guild.members.fetch({
-            user: guild.members.cache.toJSON(),
             withPresences: true,
             force: true,
         });
