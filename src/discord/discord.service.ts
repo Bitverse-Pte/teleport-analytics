@@ -2,7 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
-import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMemberManager } from 'discord.js';
+import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 require('dotenv').config();
 
@@ -184,27 +184,46 @@ export class DiscordService {
 
         console.debug('notInsertedChannels', notInsertedChannels);
         await this.prisma.discordChannel.createMany({
-            data: notInsertedChannels.map(channel => {
-                const obj: any = {
+            data: notInsertedChannels.map(channel => ({
                     id: channel.id,
                     name: channel.name,
                     type: channel.type,
                     createdAt: channel.createdAt,
                     discordGuildId: guildId,
-                }
-                /** @TODO how to connect guild members? */
-                // const members = (channel.members as ThreadMemberManager).valueOf()?.toJSON() || (channel.members as Collection<string, GuildMember>).toJSON();
-                // console.debug('notInsertedChannels::members', members);
-                // if (members.length > 0) {
-                //     obj.members = {
-                //         connect: members.map((m) => ({
-                //             id: m.id
-                //         }))
-                //     }
-                // }
-                return obj;
-            })
+            }))
         })
+        await this.syncMembersInChannels(guildId);
+    }
+
+    private async syncMembersInChannels(guildId: string) {
+        const guild = this.client.guilds.cache.get(guildId);
+        const guildChannels = guild.channels.valueOf();
+        const insertData = guildChannels.map((channel) => {
+            const members = (channel.members as ThreadMemberManager).valueOf()?.toJSON() || (channel.members as Collection<string, GuildMember>).toJSON();
+            return {
+                id: channel.id,
+                members: {
+                    connect: members.map((m: ThreadMember | GuildMember) => ({
+                        id: m.id
+                    }))
+                }
+            }
+        });
+
+        await Promise.all(insertData.map(({ id, members }) => this.prisma.discordChannel.update({
+            where: { id },
+            data: {
+                members
+            }
+        })));
+    }
+
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    private async _syncMembersInChannelsInGuilds() {
+        const guildInfos = await this.findGuildsInDatabase();
+        for (const g of guildInfos) {
+            await this.syncMembersInChannels(g.id);
+        }
     }
 
     /** Analytic about guild / channel*/
@@ -246,6 +265,7 @@ export class DiscordService {
     async storeDailyAnalyticData() {
         /** @TODO  */
     }
+
 
 
 }
