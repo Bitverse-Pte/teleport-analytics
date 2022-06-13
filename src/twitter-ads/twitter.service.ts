@@ -6,34 +6,34 @@ import {OAuth2User} from "twitter-api-sdk/dist/OAuth2User";
 import {components} from "twitter-api-sdk/dist/gen/openapi-types";
 import * as moment from 'moment-timezone'
 
-const client = new Client(process.env.TWITTER_BEARER_TOKEN)
+const publicClient = new Client(process.env.TWITTER_BEARER_TOKEN)
 
 @Injectable()
 export class TwitterService {
     private readonly logger = new Logger(TwitterService.name);
 
     constructor(
-        private prisma: PrismaService
+        private prisma: PrismaService,
     ) {
         this._init()
     }
+    private async _init() {}
 
-    private async _init() {
-        await this.logTweetsDailyStat()
-    }
-
+    /**
+     * request account information every 5 minutes,
+     * record a real time record and update the Twitter account information
+     * @private
+     */
     @Cron(CronExpression.EVERY_5_MINUTES)
     private async syncAccountData() {
         this.logger.debug('start sync account data')
-        let accounts = await this.prisma.twitterAccount.findMany();
-        let ids = [];
-        for await (const account of accounts) {
-            ids.push(account.accountId)
-        }
-        await client.users.findUsersById({
+        let accounts = await this.prisma.twitterAccount.findMany()
+        let ids = accounts.map(one => one.accountId)
+        await publicClient.users.findUsersById({
             "ids": ids,
             "user.fields": ["public_metrics"]
         }).then(async (resp) => {
+            console.log("account data", resp.data)
             for (const item of resp.data) {
                 await this.updateTwitterAccountData(item)
                 await this.insertTwitterAccountRealTimeData(item)
@@ -43,6 +43,10 @@ export class TwitterService {
         })
     }
 
+    /**
+     * generate a daily log for Twitter accounts
+     * @private
+     */
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     private async logTwitterDailyStat() {
         this.logger.debug('start log daily info')
@@ -51,7 +55,7 @@ export class TwitterService {
         for await (const account of accounts) {
             ids.push(account.accountId)
         }
-        await client.users.findUsersById({
+        await publicClient.users.findUsersById({
             "ids": ids,
             "user.fields": ["public_metrics"]
         }).then(async (resp) => {
@@ -66,53 +70,75 @@ export class TwitterService {
                         }
                     ],
                 })
+                let followerExpands = 0
                 if (record) {
-                    await this.prisma.twitterAccountDailyStat.create({
-                        data: {
-                            twitterAccountId: item.id,
-                            followersCount: item.public_metrics.followers_count,
-                            tweetCount: item.public_metrics.tweet_count,
-                            newFollowersCount: item.public_metrics.followers_count - record.followersCount,
-                        }
-                    }).then(() => {
-                    }).catch((error) => {
-                        this.logger.error(error)
-                    })
-                }else {
-                    await this.prisma.twitterAccountDailyStat.create({
-                        data: {
-                            twitterAccountId: item.id,
-                            followersCount: item.public_metrics.followers_count,
-                            tweetCount: item.public_metrics.tweet_count,
-                            newFollowersCount: 0,
-                        }
-                    }).then(() => {
-                    }).catch((error) => {
-                        this.logger.error(error)
-                    })
+                    followerExpands = item.public_metrics.followers_count - record.followersCount
                 }
+                await this.prisma.twitterAccountDailyStat.create({
+                    data: {
+                        twitterAccountId: item.id,
+                        followersCount: item.public_metrics.followers_count,
+                        tweetCount: item.public_metrics.tweet_count,
+                        newFollowersCount: followerExpands,
+                    }
+                }).then(() => {
+                }).catch((error) => {
+                    this.logger.error(error)
+                })
             }
         }).catch((error) => {
             this.logger.error(error)
         })
     }
 
+    /**
+     * scanTweetList sync every account for the latest 1 month tweets information
+     * @private
+     */
     @Cron(CronExpression.EVERY_5_MINUTES)
     async scanTweetList() {
-        this.logger.debug('start scan new tweet')
+        const startTime = moment(new Date()).subtract(1, 'months').toISOString()
+        this.logger.debug(`start scan new tweet since ${startTime}`)
         const accounts = await this.prisma.twitterAccount.findMany()
         for await (const account of accounts) {
-            const clientWithAuth = new Client(this.getAccountAuthClient(account.accessToken, account.refreshToken, account.expiresAt))
+            let authClient = await this.getAccountAuthClient(
+                account.accountId,
+                account.accessToken,
+                account.refreshToken,
+                account.expiresAt,
+            )
+            let client = new Client(authClient)
+            if (!client) {
+                continue
+            }
             try {
-                let resp = await clientWithAuth.tweets.usersIdTweets(account.accountId, {
-                    max_results: 100,
-                    exclude: ["replies", "retweets"],
-                    "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
-                })
-                if (!resp.data) {
-                    continue
+                let tweets = []
+                let hasNextPage = true
+                let nextToken = null
+                while (hasNextPage) {
+                    let resp = await client.tweets.usersIdTweets(account.accountId, {
+                        max_results: 100,
+                        exclude: ["replies", "retweets"],
+                        "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
+                        pagination_token: nextToken ? nextToken : "",
+                        start_time: startTime,
+                    })
+                    if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
+                        if (resp.data) {
+                            tweets.push.apply(tweets, resp.data)
+                        }
+                        if (resp.meta.next_token) {
+                            nextToken = resp.meta.next_token
+                        }else {
+                            hasNextPage = false
+                        }
+                    }else {
+                        hasNextPage = false
+                    }
                 }
-                for await (const tweet of resp.data) {
+
+                this.logger.debug(`get ${tweets.length} tweet info`)
+                for await (const tweet of tweets) {
                     await this.insertOrUpdateTweetData(account.accountId, tweet)
                     await this.insertTweetRealTimeData(tweet)
                 }
@@ -123,6 +149,10 @@ export class TwitterService {
         }
     }
 
+    /**
+     * logTweetsDailyStat sync every account for the daily tweet summary
+     * @private
+     */
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async logTweetsDailyStat() {
         this.logger.debug('start daily tweets log')
@@ -137,7 +167,12 @@ export class TwitterService {
         let userProfileClicks = 0
         let videoViews = 0
         for await  (const account of accounts) {
-            const clientWithAuth = new Client(this.getAccountAuthClient(account.accessToken, account.refreshToken, account.expiresAt))
+            const clientWithAuth = new Client(await this.getAccountAuthClient(
+                account.accountId,
+                account.accessToken,
+                account.refreshToken,
+                account.expiresAt,
+            ))
             try {
                 let resp = await clientWithAuth.tweets.usersIdTweets(account.accountId, {
                     max_results: 100,
@@ -230,6 +265,9 @@ export class TwitterService {
                     replies: tweet.public_metrics.reply_count,
                     videoViews: 0,
                 }
+            }).then().catch((error) => {
+                this.logger.error(`update tweet data failed: ${tweet.id}`)
+                this.logger.error(error.toString())
             })
         }else {
             await this.prisma.tweet.create({
@@ -237,7 +275,7 @@ export class TwitterService {
                     tweetId: tweet.id,
                     createdAt: new Date(tweet.created_at),
                     twitterAccountId: accountId,
-                    text: tweet.text,
+                    text: tweet.text.length > 100 ? tweet.text.substring(0, 100) : tweet.text,
                     impressions: tweet.non_public_metrics.impression_count,
                     urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
                     userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
@@ -247,7 +285,10 @@ export class TwitterService {
                     replies: tweet.public_metrics.reply_count,
                     videoViews: 0,
                 },
-            }).then((resp) => {}).catch((error) => {})
+            }).then((resp) => {}).catch((error) => {
+                this.logger.error(`update tweet data failed: ${tweet.id}`)
+                this.logger.error(error.toString())
+            })
         }
     }
 
@@ -270,18 +311,42 @@ export class TwitterService {
         })
     }
 
-    private getAccountAuthClient(accessToken: string, refreshToken: string, expiredAt: Date): OAuth2User {
-        let authClient = new auth.OAuth2User({
-            client_id: process.env.TWITTER_CLIENT_ID,
-            client_secret: process.env.TWITTER_CLIENT_SECRET,
-            callback: "http://127.0.0.1:3000/twitter/callback",
-            scopes: ["tweet.read", "offline.access"],
+    private async getAccountAuthClient(accountId: string, accessToken: string, refreshToken: string, expiredAt: Date): Promise<OAuth2User> {
+        return new Promise(async (resolve, reject) => {
+            let authClient = new auth.OAuth2User({
+                client_id: process.env.TWITTER_CLIENT_ID,
+                client_secret: process.env.TWITTER_CLIENT_SECRET,
+                callback: "http://127.0.0.1:3000/twitter/callback",
+                scopes: ["tweet.read", "users.read", "offline.access"],
+            })
+            authClient.token = {
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                expires_at: expiredAt,
+            }
+            if (expiredAt <= new Date(Date.now())) {
+                this.logger.debug('access token expired, refresh new one')
+                await authClient.refreshAccessToken().then(async (resp) => {
+                    await this.prisma.twitterAccount.update({
+                        where: {
+                            accountId: accountId,
+                        },
+                        data: {
+                            accessToken: resp.token.access_token,
+                            refreshToken: resp.token.refresh_token,
+                            expiresAt: resp.token.expires_at,
+                        },
+                    }).then((resp) => {
+                        this.logger.debug('get new token')
+                        resolve(authClient)
+                    }).catch((error) => {
+                        reject(error)
+                    })
+                }).catch((error) => {
+                    reject(error)
+                })
+            }
+            resolve(authClient)
         })
-        authClient.token = {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            expires_at: expiredAt,
-        }
-        return authClient
     }
 }

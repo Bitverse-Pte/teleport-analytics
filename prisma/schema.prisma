@@ -87,6 +87,7 @@ model Tweet {
     // TwitterAccount id
     twitterAccountId String
     createdAt DateTime
+    // text record the substring(0, 100) for a tweet, we don't need all content
     text String
 
     impressions Int @default(0)

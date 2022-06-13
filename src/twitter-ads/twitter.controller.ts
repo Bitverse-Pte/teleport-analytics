@@ -40,7 +40,6 @@ export class TwitterController {
                 }
             })
             if (account) {
-                // Update exist twitter account params
                 await this.prisma.twitterAccount.update({
                     where: {
                         accountId: account.accountId,
