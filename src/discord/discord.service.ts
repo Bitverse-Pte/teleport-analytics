@@ -203,11 +203,12 @@ export class DiscordService {
             }
         });
 
-        await Promise.all(insertData.map(({ id, members }) => this.prisma.discordChannel.update({
-            where: { id },
-            data: {
-                members
-            }
+        for (const { id, members } of insertData) {
+            await this.prisma.discordChannel.update({
+                where: { id },
+                data: {
+                    members
+                }
         })));
     }
 
