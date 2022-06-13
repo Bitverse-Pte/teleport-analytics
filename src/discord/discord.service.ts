@@ -12,10 +12,6 @@ export class DiscordService {
     private rest: REST;
     private client: Client;
 
-    /** analytic related */
-    private dailyNewMemberCount: Record<string, number> = {};
-
-
     constructor(private readonly prisma: PrismaService) {
         this.rest = new REST({ version: '9' }).setToken(process.env.DISCORD_BOT_TOKEN);
         this.client = new Client({ intents: [
@@ -83,11 +79,6 @@ export class DiscordService {
 
         this.client.on('channelCreate', this.handleNewChannelCreatedInGuild.bind(this));
 
-        /**
-         * Listening member's presence
-         */
-        this.client.on('presenceUpdate', this.handleMemberPresenceUpdate.bind(this));
-
         // after finished
         this.client.login(process.env.DISCORD_BOT_TOKEN);
     }
@@ -148,13 +139,15 @@ export class DiscordService {
         this.logger.debug(`New Channel "${channel.name}"(${channel.id}) created in Guild ${channel.guild.name}`);
     }
 
-
-    handleNewMemberInGuild(member: GuildMember) {
-        console.debug('handleNewMemberInGuild::member:', member);
-    }
-
-    handleMemberPresenceUpdate(oldPresence: Presence, newPresence: Presence) {
-        this.logger.debug(`handleMemberPresenceUpdate::update ${oldPresence.status} => ${newPresence.status} for ${oldPresence.user.id}`);
+    async handleNewMemberInGuild(newMember: GuildMember) {
+        console.debug('handleNewMemberInGuild::member:', newMember);
+        await this.prisma.discordGuildMember.create({
+            data: {
+                id: newMember.id,
+                discordGuildId: newMember.guild.id,
+                messageQty: 0
+            }
+        })
     }
 
     /**
