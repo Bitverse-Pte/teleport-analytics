@@ -1,6 +1,7 @@
 import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { DiscordGuildChannelStat } from '@prisma/client';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getYesterday } from 'src/utils/date';
@@ -246,13 +247,15 @@ export class DiscordService {
                 data: {
                     totalMemberCount: channel.members.length,
                     onlineMemberCount,
-                    channel: { connect: channel }
+                    channel: { connect: {
+                        id: channel.id
+                    } }
                 }
             })
         }
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_MINUTE)
     async countGuildDailyAnalyticData() {
         const guildInfo = await this.findGuildInDatabase()
         const counts = await this.prisma.discordGuildStat.findMany({
@@ -275,12 +278,54 @@ export class DiscordService {
             highestOnline: sortedByOnlineCount[sortedByOnlineCount.length - 1],
             lowestOnline: sortedByOnlineCount[0]
         };
+        console.debug('dailyGuildStats', dailyGuildStats);
         
+        /** count channel now */
+        await this.countChannelsDailyAnalyticData();
         /** @TODO Write to Spreadsheets */
     }
 
     async countChannelsDailyAnalyticData() {
-        
+        const channelIdToStats = new Map<string, {
+            dayStart: DiscordGuildChannelStat;
+            dayEnd: DiscordGuildChannelStat;
+            highestMember: DiscordGuildChannelStat;
+            lowestMember: DiscordGuildChannelStat;
+        }>();
+        const channelInfos = await this.prisma.discordChannel.findMany();
+
+        /**
+         * get all channel stats from yesterday
+         */
+        const channelsCounts = await this.prisma.discordGuildChannelStat.findMany({
+            where: {
+                createdAt: {
+                    gte: getYesterday()
+                }
+            },
+            include: {
+                channel: true
+            }
+        });
+
+        channelInfos.forEach(({ id: channelId }) => {
+            const channelCounts = channelsCounts
+                                    .filter((stats) => stats.channel.id === channelId)
+                                    /** sort from small to large */
+                                    .sort((a, b) => a.totalMemberCount - b.totalMemberCount);
+            const dailyChannelStats = {
+                dayStart: channelCounts[0],
+                dayEnd: channelCounts[channelCounts.length - 1],
+                highestMember: channelCounts[channelCounts.length - 1],
+                lowestMember: channelCounts[0]
+            };
+            channelIdToStats.set(
+                channelId,
+                dailyChannelStats
+            );
+        })
+
+        return channelIdToStats;
     }
 
 }

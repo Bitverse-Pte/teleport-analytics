@@ -11,10 +11,11 @@ datasource db {
 }
 
 model DiscordGuild {
-  id                String               @id
-  channels          DiscordChannel[]
-  members           DiscordGuildMember[]
-  discordGuildStats DiscordGuildStat[]
+  id                    String                  @id
+  channels              DiscordChannel[]
+  members               DiscordGuildMember[]
+  discordGuildStats     DiscordGuildStat[]
+  guildDailyStats       DiscordGuildDailyStat[]
 }
 
 model DiscordGuildMember {
@@ -42,13 +43,13 @@ model DiscordGuildStat {
 model DiscordGuildChannelStat {
   id Int @id @default(autoincrement())
 
-  channel DiscordChannel @relation(fields: [discordChannelId], references: [id])
-  discordChannelId  String
+  channel          DiscordChannel @relation(fields: [discordChannelId], references: [id])
+  discordChannelId String
 
   createdAt DateTime @default(now())
 
-  totalMemberCount  Int    @default(0)
-  onlineMemberCount Int    @default(0)
+  totalMemberCount  Int @default(0)
+  onlineMemberCount Int @default(0)
 }
 
 enum DiscordChannelType {
@@ -80,8 +81,42 @@ model DiscordChannel {
   type      DiscordChannelType
   createdAt DateTime
 
-  members                 DiscordGuildMember[]
-  channelStats            DiscordGuildChannelStat[]
+  members                      DiscordGuildMember[]
+  channelStats                 DiscordGuildChannelStat[]
+
+  DailyStats DiscordGuildChannelDailyStat[]
+}
+
+model DiscordGuildDailyStat {
+  id    Int          @id @default(autoincrement())
+  guild DiscordGuild @relation(fields: [discordGuildId], references: [id])
+  date  DateTime     @default(now())
+
+  startTotalMemberCount  Int @default(0)
+  startOnlineMemberCount Int @default(0)
+
+  endTotalMemberCount  Int @default(0)
+  endOnlineMemberCount Int @default(0)
+
+  highestOnlineMemberCount Int    @default(0)
+  lowestOnlineMemberCount  Int    @default(0)
+  discordGuildId           String
+}
+
+model DiscordGuildChannelDailyStat {
+  id      Int            @id @default(autoincrement())
+  channel DiscordChannel @relation(fields: [discordChannelId], references: [id])
+  date    DateTime       @default(now())
+
+  startTotalMemberCount  Int @default(0)
+  startOnlineMemberCount Int @default(0)
+
+  endTotalMemberCount  Int @default(0)
+  endOnlineMemberCount Int @default(0)
+
+  highestTotalMemberCount Int    @default(0)
+  lowestTotalMemberCount  Int    @default(0)
+  discordChannelId        String
 }
 
 model TelegramGroup {
