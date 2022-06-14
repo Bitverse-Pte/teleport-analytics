@@ -34,6 +34,9 @@ export class TwitterService {
         this.logger.debug('start sync account data')
         let accounts = await this.prisma.twitterAccount.findMany()
         let ids = accounts.map(one => one.accountId)
+        if (ids.length === 0) {
+            return
+        }
         await publicClient.users.findUsersById({
             "ids": ids,
             "user.fields": ["public_metrics"]
