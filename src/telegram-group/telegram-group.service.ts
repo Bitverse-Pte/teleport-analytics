@@ -35,9 +35,10 @@ export class TelegramGroupService {
         private prisma: PrismaService,
         private emailService: EmailService
     ) {
+        const agent = process.env.PROXY_SETTINGS ? new SocksProxyAgent(process.env.PROXY_SETTINGS) : undefined;
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
             telegram: {
-                agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
+                agent: agent
             }
         });
        this._init();
