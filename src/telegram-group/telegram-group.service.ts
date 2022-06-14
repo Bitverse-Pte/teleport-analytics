@@ -35,9 +35,10 @@ export class TelegramGroupService {
         private prisma: PrismaService,
         private emailService: EmailService
     ) {
+        const agent = process.env.PROXY_SETTINGS ? new SocksProxyAgent(process.env.PROXY_SETTINGS) : undefined;
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
             telegram: {
-                agent: new SocksProxyAgent(process.env.PROXY_SETTINGS)
+                agent: agent
             }
         });
        this._init();
@@ -290,31 +291,38 @@ export class TelegramGroupService {
         this.listeningChats.forEach(this._resetCounter.bind(this));
     }
 
-   @Cron(CronExpression.EVERY_DAY_AT_8AM)
-   async sendDailyStats() {
-    let text = ' Group ID, Active Member, Total Message(s), New Member, Conversion Rate, Total Member  \n';
+   async exportDailyData() {
+    let head: unknown[] = [
+            'Group ID',
+            'Active Member',
+            'Total Message(s)',
+            'New Member',
+            'Conversion Rate',
+            'Total Member'
+    ];
     const yesterday = getYesterday();
     const entries = await this.prisma.telegramGroupDailyStat.findMany({
         where: {
             date: yesterday
         }
     })
-    entries.forEach((entry) => {
-        const newMemberConversionRate = entry.activeNewMemberCount / entry.newMemberCount;
-        text += `${entry.groupId} ${entry.activeMemberCount} ${entry.messageCount} ${entry.newMemberCount} ${newMemberConversionRate} ${entry.totalMemberCount} \n`
-    });
-    try {
-        // send mail with defined transport object
-        let info = await this.emailService.transporter.sendMail({
-            from: `"Analytic Bot by Frank Wei👻" <${process.env.MAIL_ACCOUNT}>`, // sender address
-            to: `${process.env.MAIL_ACCOUNT}`, // list of receivers
-            subject: "Telegram Group Stats", // Subject line
-            text, // plain text body
-        });
 
-        this.logger.log("Message sent: %s", info.messageId);
-    } catch (error) {
-        this.logger.error('sendAnalytic::error: ', error);
+    const datas = entries.map((entry) => {
+        const newMemberConversionRate = entry.activeNewMemberCount / entry.newMemberCount;
+        return [
+            entry.groupId.toString(),
+            entry.activeMemberCount,
+            entry.messageCount,
+            entry.newMemberCount,
+            newMemberConversionRate,
+            entry.totalMemberCount
+        ]
+    });
+
+    return {
+        name: "Telegram Group Daily Stats",
+        data: [head, ...datas],
+        options: {},
     }
-   }
+  }
 }

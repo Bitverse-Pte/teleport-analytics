@@ -7,6 +7,7 @@ import {EmailModule} from "../email/email.module";
 @Module({
     imports: [PrismaModule, EmailModule],
     controllers: [TwitterController],
-    providers: [TwitterService]
+    providers: [TwitterService],
+    exports: [TwitterService]
 })
 export class TwitterModule {}

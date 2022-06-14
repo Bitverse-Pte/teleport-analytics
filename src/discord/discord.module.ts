@@ -4,6 +4,7 @@ import { DiscordService } from './discord.service';
 
 @Module({
   imports: [PrismaModule],
-  providers: [DiscordService]
+  providers: [DiscordService],
+  exports: [DiscordService]
 })
 export class DiscordModule {}

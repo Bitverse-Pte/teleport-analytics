@@ -5,6 +5,7 @@ import { TelegramGroupService } from './telegram-group.service';
 
 @Module({
   imports: [PrismaModule, EmailModule],
-  providers: [TelegramGroupService]
+  providers: [TelegramGroupService],
+  exports: [TelegramGroupService]
 })
 export class TelegramGroupModule {}

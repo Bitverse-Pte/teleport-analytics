@@ -1,9 +1,10 @@
 import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { DiscordGuildChannelStat } from '@prisma/client';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { getYesterday } from 'src/utils/date';
+import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
 require('dotenv').config();
 
 @Injectable()
@@ -246,7 +247,9 @@ export class DiscordService {
                 data: {
                     totalMemberCount: channel.members.length,
                     onlineMemberCount,
-                    channel: { connect: channel }
+                    channel: { connect: {
+                        id: channel.id
+                    } }
                 }
             })
         }
@@ -275,12 +278,154 @@ export class DiscordService {
             highestOnline: sortedByOnlineCount[sortedByOnlineCount.length - 1],
             lowestOnline: sortedByOnlineCount[0]
         };
+
+        await this.prisma.discordGuildDailyStat.create({
+            data: {
+                discordGuildId: guildInfo.id,
+                startTotalMemberCount: dailyGuildStats.dayStart.totalMemberCount,
+                startOnlineMemberCount: dailyGuildStats.dayStart.onlineMemberCount,
+                endTotalMemberCount: dailyGuildStats.dayEnd.totalMemberCount,
+                endOnlineMemberCount: dailyGuildStats.dayEnd.onlineMemberCount,
+              
+                highestOnlineMemberCount: dailyGuildStats.highestOnline.onlineMemberCount,
+                lowestOnlineMemberCount: dailyGuildStats.lowestOnline.onlineMemberCount,
+            }
+        })
         
-        /** @TODO Write to Spreadsheets */
+        /** count channel now */
+        await this.countChannelsDailyAnalyticData();
     }
 
     async countChannelsDailyAnalyticData() {
-        
+        const channelIdToStats = new Map<string, {
+            dayStart: DiscordGuildChannelStat;
+            dayEnd: DiscordGuildChannelStat;
+            highestMember: DiscordGuildChannelStat;
+            lowestMember: DiscordGuildChannelStat;
+        }>();
+        const channelInfos = await this.prisma.discordChannel.findMany();
+
+        /**
+         * get all channel stats from yesterday
+         */
+        const channelsCounts = await this.prisma.discordGuildChannelStat.findMany({
+            where: {
+                createdAt: {
+                    gte: getYesterday()
+                }
+            },
+            include: {
+                channel: true
+            }
+        });
+
+        channelInfos.forEach(({ id: channelId }) => {
+            const channelCounts = channelsCounts
+                                    .filter((stats) => stats.channel.id === channelId)
+                                    /** sort from small to large */
+                                    .sort((a, b) => a.totalMemberCount - b.totalMemberCount);
+            const dailyChannelStats = {
+                dayStart: channelCounts[0],
+                dayEnd: channelCounts[channelCounts.length - 1],
+                highestMember: channelCounts[channelCounts.length - 1],
+                lowestMember: channelCounts[0]
+            };
+            channelIdToStats.set(
+                channelId,
+                dailyChannelStats
+            );
+        })
+
+        await this.prisma.discordGuildChannelDailyStat.createMany({
+            data: channelInfos.map(({ id }) => {
+                const vals = channelIdToStats.get(id);
+                return {
+                    discordChannelId: id,
+                    startOnlineMemberCount: vals.dayStart.onlineMemberCount,
+                    endOnlineMemberCount: vals.dayEnd.onlineMemberCount,
+                    startTotalMemberCount: vals.dayStart.totalMemberCount,
+                    endTotalMemberCount: vals.dayEnd.totalMemberCount,
+                    lowestTotalMemberCount: vals.lowestMember.totalMemberCount,
+                    highestTotalMemberCount: vals.highestMember.totalMemberCount,
+                }
+            })
+        })
     }
 
+    /** Export daily data into XLSX */
+    async exportGuildDailyData() {
+        let head: unknown[] = [
+                'Total Member(Start)',
+                'Total Member(End)',
+                'Online Member(Lowest)',
+                'Online Member(Highest)',
+                'Online Member(Start)',
+                'Online Member(End)',
+        ];
+        const weekBefore = getXDaysAgoAtMidnight(7);
+        const entries = await this.prisma.discordGuildDailyStat.findMany({
+            where: {
+                date: weekBefore
+            }
+        })
+
+        const datas = entries.map((entry) => {
+            return [
+                entry.startTotalMemberCount,
+                entry.endTotalMemberCount,
+                entry.lowestOnlineMemberCount,
+                entry.highestOnlineMemberCount,
+                entry.startOnlineMemberCount,
+                entry.endOnlineMemberCount
+            ]
+        });
+
+        return {
+            name: "Discord Server Daily Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
+
+    async exportChannelsDailyData() {
+        let head: unknown[] = [
+            'Online Member(Start)',
+            'Online Member(End)',
+            'Total Member(Start)',
+            'Total Member(End)',
+            'Total Member(Lowest)',
+            'Total Member(Highest)',
+
+        ];
+        const weekBefore = getXDaysAgoAtMidnight(7);
+        const entries = await this.prisma.discordGuildChannelDailyStat.findMany({
+            where: {
+                date: weekBefore
+            }
+        })
+
+        const datas = entries.map(({
+            startOnlineMemberCount,
+            endOnlineMemberCount,
+            startTotalMemberCount,
+            endTotalMemberCount,
+            lowestTotalMemberCount,
+            highestTotalMemberCount
+        }) => {
+            return [
+                startOnlineMemberCount,
+                endOnlineMemberCount,
+                startTotalMemberCount,
+                endTotalMemberCount,
+                lowestTotalMemberCount,
+                highestTotalMemberCount
+            ]
+        });
+
+        return {
+            name: "Discord Channels Daily Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
 }
