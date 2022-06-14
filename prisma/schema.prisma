@@ -151,7 +151,7 @@ model TwitterAccountDailyStat {
     followersCount Int @default(0)
     newFollowersCount Int @default(0)
     tweetCount Int @default(0)
-
+    newTweetCount Int @default(0)
      @@index([twitterAccountId])
 }
 

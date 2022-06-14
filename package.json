@@ -33,6 +33,7 @@
     "dotenv": "^16.0.1",
     "moment": "^2.29.3",
     "moment-timezone": "^0.5.34",
+    "node-xlsx": "^0.21.0",
     "nodemailer": "^6.7.5",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",

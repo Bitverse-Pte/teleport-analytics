@@ -5,6 +5,9 @@ import {auth, Client} from "twitter-api-sdk";
 import {OAuth2User} from "twitter-api-sdk/dist/OAuth2User";
 import {components} from "twitter-api-sdk/dist/gen/openapi-types";
 import * as moment from 'moment-timezone'
+import {EmailService} from "../email/email.service";
+import {getYesterday} from "../utils/date";
+import {WorkSheet} from "node-xlsx";
 
 const publicClient = new Client(process.env.TWITTER_BEARER_TOKEN)
 
@@ -14,10 +17,12 @@ export class TwitterService {
 
     constructor(
         private prisma: PrismaService,
+        private emailService: EmailService
     ) {
         this._init()
     }
-    private async _init() {}
+    private async _init() {
+    }
 
     /**
      * request account information every 5 minutes,
@@ -70,16 +75,18 @@ export class TwitterService {
                         }
                     ],
                 })
-                let followerExpands = 0
+                let newFollowers = 0
+                let newPosts = 0
                 if (record) {
-                    followerExpands = item.public_metrics.followers_count - record.followersCount
+                    newFollowers = item.public_metrics.followers_count - record.followersCount
                 }
                 await this.prisma.twitterAccountDailyStat.create({
                     data: {
                         twitterAccountId: item.id,
                         followersCount: item.public_metrics.followers_count,
                         tweetCount: item.public_metrics.tweet_count,
-                        newFollowersCount: followerExpands,
+                        newFollowersCount: newFollowers,
+                        newTweetCount: newPosts,
                     }
                 }).then(() => {
                 }).catch((error) => {
@@ -348,5 +355,65 @@ export class TwitterService {
             }
             resolve(authClient)
         })
+    }
+
+    public async exportAccountData(): Promise<WorkSheet> {
+        let data: unknown[][] = [
+            ["Account", "Date", "Tweets", "New Tweets", "Followers", "New Followers"]
+        ]
+        const records = await this.prisma.twitterAccountDailyStat.findMany({
+            where: {
+                date: {
+                    gte: getYesterday()
+                }
+            }
+        })
+        for (const record of records) {
+            data.push([
+                record.id,
+                record.date,
+                record.tweetCount,
+                record.newTweetCount,
+                record.followersCount,
+                record.newFollowersCount,
+            ])
+        }
+
+        return {
+            name: "Twitter Account",
+            data: data,
+            options: {},
+        }
+    }
+
+    public async exportTweetData(): Promise<WorkSheet> {
+        let data: unknown[][] = [
+            ["Account", "Date", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks"],
+        ]
+        const records = await this.prisma.tweetsDailyStat.findMany({
+            where: {
+                date: {
+                    gte: getYesterday()
+                }
+            }
+        })
+        for (const record of records) {
+            data.push([
+                record.id,
+                record.date,
+                record.impressions,
+                record.retweets,
+                record.quoteTweets,
+                record.likes,
+                record.replies,
+                record.userProfileClicks,
+            ])
+        }
+
+        return {
+            name: "Tweets",
+            data: data,
+            options: {},
+        }
     }
 }
