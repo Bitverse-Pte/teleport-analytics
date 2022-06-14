@@ -255,7 +255,7 @@ export class DiscordService {
         }
     }
 
-    @Cron(CronExpression.EVERY_MINUTE)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async countGuildDailyAnalyticData() {
         const guildInfo = await this.findGuildInDatabase()
         const counts = await this.prisma.discordGuildStat.findMany({
@@ -278,11 +278,22 @@ export class DiscordService {
             highestOnline: sortedByOnlineCount[sortedByOnlineCount.length - 1],
             lowestOnline: sortedByOnlineCount[0]
         };
-        console.debug('dailyGuildStats', dailyGuildStats);
+
+        await this.prisma.discordGuildDailyStat.create({
+            data: {
+                discordGuildId: guildInfo.id,
+                startTotalMemberCount: dailyGuildStats.dayStart.totalMemberCount,
+                startOnlineMemberCount: dailyGuildStats.dayStart.onlineMemberCount,
+                endTotalMemberCount: dailyGuildStats.dayEnd.totalMemberCount,
+                endOnlineMemberCount: dailyGuildStats.dayEnd.onlineMemberCount,
+              
+                highestOnlineMemberCount: dailyGuildStats.highestOnline.onlineMemberCount,
+                lowestOnlineMemberCount: dailyGuildStats.lowestOnline.onlineMemberCount,
+            }
+        })
         
         /** count channel now */
         await this.countChannelsDailyAnalyticData();
-        /** @TODO Write to Spreadsheets */
     }
 
     async countChannelsDailyAnalyticData() {
@@ -325,7 +336,20 @@ export class DiscordService {
             );
         })
 
-        return channelIdToStats;
+        await this.prisma.discordGuildChannelDailyStat.createMany({
+            data: channelInfos.map(({ id }) => {
+                const vals = channelIdToStats.get(id);
+                return {
+                    discordChannelId: id,
+                    startOnlineMemberCount: vals.dayStart.onlineMemberCount,
+                    endOnlineMemberCount: vals.dayEnd.onlineMemberCount,
+                    startTotalMemberCount: vals.dayStart.totalMemberCount,
+                    endTotalMemberCount: vals.dayEnd.totalMemberCount,
+                    lowestTotalMemberCount: vals.lowestMember.totalMemberCount,
+                    highestTotalMemberCount: vals.highestMember.totalMemberCount,
+                }
+            })
+        })
     }
 
 }
