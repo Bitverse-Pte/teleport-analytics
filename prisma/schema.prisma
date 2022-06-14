@@ -39,6 +39,18 @@ model DiscordGuildStat {
   onlineMemberCount Int @default(0)
 }
 
+model DiscordGuildChannelStat {
+  id Int @id @default(autoincrement())
+
+  channel DiscordChannel @relation(fields: [discordChannelId], references: [id])
+  discordChannelId  String
+
+  createdAt DateTime @default(now())
+
+  totalMemberCount  Int    @default(0)
+  onlineMemberCount Int    @default(0)
+}
+
 enum DiscordChannelType {
   GUILD_TEXT
   DM
@@ -68,7 +80,8 @@ model DiscordChannel {
   type      DiscordChannelType
   createdAt DateTime
 
-  members DiscordGuildMember[]
+  members                 DiscordGuildMember[]
+  channelStats            DiscordGuildChannelStat[]
 }
 
 model TelegramGroup {

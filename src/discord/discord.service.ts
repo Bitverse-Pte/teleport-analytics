@@ -231,6 +231,25 @@ export class DiscordService {
                 onlineMemberCount: counts.onlineMemberCount
             })
         })
+        /** no online counter for this, since member status is universal, just use this */
+        this._storeCurrentCountOfChannels(counts.onlineMemberCount)
+    }
+
+    private async _storeCurrentCountOfChannels(onlineMemberCount: number) {
+        const channelsInfo = await this.prisma.discordChannel.findMany({
+            include: {
+                members: true
+            }
+        });
+        for (const channel of channelsInfo) {
+            await this.prisma.discordGuildChannelStat.create({
+                data: {
+                    totalMemberCount: channel.members.length,
+                    onlineMemberCount,
+                    channel: { connect: channel }
+                }
+            })
+        }
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
