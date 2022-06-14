@@ -8,6 +8,8 @@ import {Cron, CronExpression} from "@nestjs/schedule";
 import {PrismaService} from "./prisma/prisma.service";
 import {EmailService} from "./email/email.service";
 import {TwitterService} from "./twitter-ads/twitter.service";
+import { DiscordService } from './discord/discord.service';
+import { TelegramGroupService } from './telegram-group/telegram-group.service';
 
 @Injectable()
 export class AppService {
@@ -17,6 +19,8 @@ export class AppService {
       private prisma: PrismaService,
       private emailService: EmailService,
       private twitter: TwitterService,
+      private discordService: DiscordService,
+      private telegramService: TelegramGroupService
   ) {
   }
 
