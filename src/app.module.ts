@@ -6,6 +6,7 @@ import { EmailModule } from './email/email.module';
 import { TelegramGroupModule } from './telegram-group/telegram-group.module';
 import { TwitterModule } from './twitter-ads/twitter.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { DiscordModule } from './discord/discord.module';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { PrismaModule } from './prisma/prisma.module';
     EmailModule,
     TelegramGroupModule,
     TwitterModule,
-    PrismaModule
+    PrismaModule,
+    DiscordModule
   ],
   controllers: [AppController],
   providers: [AppService],
