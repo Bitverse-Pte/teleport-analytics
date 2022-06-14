@@ -236,7 +236,7 @@ export class DiscordService {
         return { totalMemberCount, onlineMemberCount }
     }
 
-    @Cron(CronExpression.EVERY_MINUTE)
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async storeCurrentCountOfGuilds() {
         this.logger.debug('Persist Listening Guilds Stats into Database.');
         const guildInfos = await this.findGuildsInDatabase();
