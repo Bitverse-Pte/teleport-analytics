@@ -3,7 +3,7 @@ import axios from 'axios';
 import { CombotAnalyticResult } from './typing/Combot';
 import xlsx from "node-xlsx";
 import * as moment from "moment-timezone";
-import fs from "fs";
+import * as fs from "fs";
 import {Cron, CronExpression} from "@nestjs/schedule";
 import {PrismaService} from "./prisma/prisma.service";
 import {EmailService} from "./email/email.service";
@@ -37,13 +37,22 @@ export class AppService {
     console.info('response', response);
   }
 
+  // @Cron(CronExpression.EVERY_5_MINUTES)
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   private async sendReport() {
     let twitterAccountSheet = await this.twitter.exportAccountData()
     let tweetsSheets = await this.twitter.exportTweetData()
+    let telegramSheets = await this.telegramService.exportDailyData();
+
+    let discordGuildSheets = await this.discordService.exportGuildDailyData();
+    let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
+    
     let buffer = xlsx.build([
       twitterAccountSheet,
       tweetsSheets,
+      telegramSheets,
+      discordGuildSheets,
+      discordGuildChannelsSheets
     ])
     let filename = `TeleportChain-Analytics-${moment().format('YYYYMMDD')}.xlsx`
     fs.writeFile(filename, buffer, async err => {

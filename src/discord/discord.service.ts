@@ -4,7 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuildChannelStat } from '@prisma/client';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { getYesterday } from 'src/utils/date';
+import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
 require('dotenv').config();
 
 @Injectable()
@@ -352,4 +352,80 @@ export class DiscordService {
         })
     }
 
+    /** Export daily data into XLSX */
+    async exportGuildDailyData() {
+        let head: unknown[] = [
+                'Total Member(Start)',
+                'Total Member(End)',
+                'Online Member(Lowest)',
+                'Online Member(Highest)',
+                'Online Member(Start)',
+                'Online Member(End)',
+        ];
+        const weekBefore = getXDaysAgoAtMidnight(7);
+        const entries = await this.prisma.discordGuildDailyStat.findMany({
+            where: {
+                date: weekBefore
+            }
+        })
+
+        const datas = entries.map((entry) => {
+            return [
+                entry.startTotalMemberCount,
+                entry.endTotalMemberCount,
+                entry.lowestOnlineMemberCount,
+                entry.highestOnlineMemberCount,
+                entry.startOnlineMemberCount,
+                entry.endOnlineMemberCount
+            ]
+        });
+
+        return {
+            name: "Discord Server Daily Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
+
+    async exportChannelsDailyData() {
+        let head: unknown[] = [
+            'Online Member(Start)',
+            'Online Member(End)',
+            'Total Member(Start)',
+            'Total Member(End)',
+            'Total Member(Lowest)',
+            'Total Member(Highest)',
+
+        ];
+        const weekBefore = getXDaysAgoAtMidnight(7);
+        const entries = await this.prisma.discordGuildChannelDailyStat.findMany({
+            where: {
+                date: weekBefore
+            }
+        })
+
+        const datas = entries.map(({
+            startOnlineMemberCount,
+            endOnlineMemberCount,
+            startTotalMemberCount,
+            endTotalMemberCount,
+            lowestTotalMemberCount,
+            highestTotalMemberCount
+        }) => {
+            return [
+                startOnlineMemberCount,
+                endOnlineMemberCount,
+                startTotalMemberCount,
+                endTotalMemberCount,
+                lowestTotalMemberCount,
+                highestTotalMemberCount
+            ]
+        });
+
+        return {
+            name: "Discord Channels Daily Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
 }
