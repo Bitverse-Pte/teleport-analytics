@@ -1,8 +1,7 @@
 import { REST } from '@discordjs/rest';
-import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
-import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMember, ThreadMemberManager } from 'discord.js';
+import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getYesterday } from 'src/utils/date';
 require('dotenv').config();
@@ -33,33 +32,31 @@ export class DiscordService {
         /**
          * Here we import all guild data and it's members
          */
-        const listeningGuildInfos = await this.findGuildsInDatabase();
-        const matchedGuilds = listeningGuildInfos.map((ginfo) => this.client.guilds.cache.get(ginfo.id));
+        const listeningGuildInfo = await this.findGuildInDatabase();
+        const guild = this.client.guilds.cache.get(listeningGuildInfo.id);
 
-        for (const guild of matchedGuilds) {
-            const allGuildMembers = guild.members.valueOf().toJSON();
-            const allGuildMemberIds = allGuildMembers.map(m => m.id);
-            const recordedGuildMembers = await this.prisma.discordGuildMember.findMany({
-                where: {
-                    AND: {
-                        id: {
-                            in: allGuildMemberIds
-                        },
-                        discordGuildId: guild.id
-                    }
+        const allGuildMembers = guild.members.valueOf().toJSON();
+        const allGuildMemberIds = allGuildMembers.map(m => m.id);
+        const recordedGuildMembers = await this.prisma.discordGuildMember.findMany({
+            where: {
+                AND: {
+                    id: {
+                        in: allGuildMemberIds
+                    },
+                    discordGuildId: guild.id
                 }
-            });
-            const recordedGuildMemberIds = recordedGuildMembers.map(m => m.id);
-            const newGuildMembers = allGuildMembers.filter(member => !recordedGuildMemberIds.includes(member.id));
-            await this.prisma.discordGuildMember.createMany({
-                data: newGuildMembers.map(newMember => ({
-                    id: newMember.id,
-                    discordGuildId: guild.id,
-                    messageQty: 0
-                }))
-            });
-            this.logger.debug(`Create ${newGuildMembers.length} users for Guild ${guild.name}`);
-        }
+            }
+        });
+        const recordedGuildMemberIds = recordedGuildMembers.map(m => m.id);
+        const newGuildMembers = allGuildMembers.filter(member => !recordedGuildMemberIds.includes(member.id));
+        await this.prisma.discordGuildMember.createMany({
+            data: newGuildMembers.map(newMember => ({
+                id: newMember.id,
+                discordGuildId: guild.id,
+                messageQty: 0
+            }))
+        });
+        this.logger.debug(`Create ${newGuildMembers.length} users for Guild ${guild.name}`);
 
         /**
          * After guilds are saved to DB, we sync the channels
@@ -84,20 +81,13 @@ export class DiscordService {
         this.client.login(process.env.DISCORD_BOT_TOKEN);
     }
 
-    findGuildInDatabase(id: string) {
-        return this.prisma.discordGuild.findFirst({
-            where: { id }
-        });
-    }
-
-    findGuildsInDatabase() {
-        /** return all listening guilds */
-        return this.prisma.discordGuild.findMany();
+    findGuildInDatabase() {
+        return this.prisma.discordGuild.findFirst();
     }
 
     async throwErrorOnNonListeningGuild(guildId: string) {
-        const guildInfo = await this.findGuildInDatabase(guildId);
-        if (!guildInfo) {
+        const guildInfo = await this.findGuildInDatabase();
+        if (guildInfo.id !== guildId) {
             this.logger.warn(`message ignored since from guild ${guildId}`);
             throw new Error(`message ignored since from guild ${guildId}`)
         }
@@ -116,9 +106,9 @@ export class DiscordService {
 
     async handleNewChannelCreatedInGuild(channel: NonThreadGuildBasedChannel) {
         this.logger.debug('channelCreate triggered');
-        const guildInfo = await this.findGuildInDatabase(channel.guildId);
+        const guildInfo = await this.findGuildInDatabase();
         // ignore if not exist
-        if (!guildInfo) return;
+        if (guildInfo.id !== channel.guildId) return;
         const guildMemberInChannels = channel.members.map((m) => ({
             id: m.id,
         }));
@@ -152,10 +142,8 @@ export class DiscordService {
      * data syncing
      */
     async syncChannelsFromGuilds() {
-        const guildsInfo = await this.findGuildsInDatabase();
-        for (const { id: guildId } of guildsInfo) {
-            await this.syncChannelsFromGuild(guildId);
-        }
+        const { id: guildId } = await this.findGuildInDatabase();
+        await this.syncChannelsFromGuild(guildId);
     }
 
     async syncChannelsFromGuild(guildId: string) {
@@ -183,11 +171,13 @@ export class DiscordService {
                     discordGuildId: guildId,
             }))
         })
-        await this.syncMembersInChannels(guildId);
+        await this.syncMembersInChannels();
     }
 
-    private async syncMembersInChannels(guildId: string) {
-        const guild = this.client.guilds.cache.get(guildId);
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    private async syncMembersInChannels() {
+        const guildInfo = await this.findGuildInDatabase();
+        const guild = this.client.guilds.cache.get(guildInfo.id);
         const guildChannels = guild.channels.valueOf();
         const insertData = guildChannels.map((channel) => {
             const members = (channel.members as ThreadMemberManager).valueOf()?.toJSON() || (channel.members as Collection<string, GuildMember>).toJSON();
@@ -211,14 +201,6 @@ export class DiscordService {
         }
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-    private async _syncMembersInChannelsInGuilds() {
-        const guildInfos = await this.findGuildsInDatabase();
-        for (const g of guildInfos) {
-            await this.syncMembersInChannels(g.id);
-        }
-    }
-
     /** Analytic about guild / channel*/
     async getCurrentCountOfGuild(guildId: string): Promise<{ totalMemberCount: number, onlineMemberCount: number }> {
         const guild = this.client.guilds.cache.get(guildId);
@@ -237,29 +219,27 @@ export class DiscordService {
     @Cron(CronExpression.EVERY_5_MINUTES)
     async storeCurrentCountOfGuilds() {
         this.logger.debug('Persist Listening Guilds Stats into Database.');
-        const guildInfos = await this.findGuildsInDatabase();
+        const guildInfo = await this.findGuildInDatabase();
 
-        const counts = await Promise.all(guildInfos.map(({ id }) => {
-            return this.getCurrentCountOfGuild(id);
-        }));
+        const counts = await this.getCurrentCountOfGuild(guildInfo.id);
         console.debug('storeCurrentCountOfGuilds::counts', counts);
 
-        await this.prisma.discordGuildStat.createMany({
-            data: guildInfos.map(({ id }, idx) => ({
-                discordGuildId: id,
-                totalMemberCount: counts[idx].totalMemberCount,
-                onlineMemberCount: counts[idx].onlineMemberCount
-            }))
+        await this.prisma.discordGuildStat.create({
+            data: ({
+                discordGuildId: guildInfo.id,
+                totalMemberCount: counts.totalMemberCount,
+                onlineMemberCount: counts.onlineMemberCount
+            })
         })
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async countGuildDailyAnalyticData() {
-        const infos = await this.findGuildsInDatabase()
+        const guildInfo = await this.findGuildInDatabase()
         const counts = await this.prisma.discordGuildStat.findMany({
             where: {
                 AND: {
-                    discordGuildId: { in: infos.map(g => g.id) },
+                    discordGuildId: guildInfo.id,
                     createdAt: {
                         gte: getYesterday()
                     }
@@ -276,9 +256,12 @@ export class DiscordService {
             highestOnline: sortedByOnlineCount[sortedByOnlineCount.length - 1],
             lowestOnline: sortedByOnlineCount[0]
         };
-        console.debug('dailyGuildStats', dailyGuildStats);
-        return dailyGuildStats;
+        
+        /** @TODO Write to Spreadsheets */
     }
 
+    async countChannelsDailyAnalyticData() {
+        
+    }
 
 }
