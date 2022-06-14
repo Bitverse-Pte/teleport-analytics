@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuild, DiscordGuildMember } from '@prisma/client';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, Presence, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { getYesterday } from 'src/utils/date';
 require('dotenv').config();
 
 @Injectable()
@@ -96,7 +97,6 @@ export class DiscordService {
 
     async throwErrorOnNonListeningGuild(guildId: string) {
         const guildInfo = await this.findGuildInDatabase(guildId);
-        console.debug('guildInfo', guildInfo);
         if (!guildInfo) {
             this.logger.warn(`message ignored since from guild ${guildId}`);
             throw new Error(`message ignored since from guild ${guildId}`)
@@ -108,7 +108,6 @@ export class DiscordService {
      */
     async handleNewMessage(msg: Message<boolean>) {
         this.logger.debug('_setupListeners::onMessage');
-        console.debug('onMessage::msg', msg)
         /** ignore on bot msg */
         if (msg.author.bot) return;
         /** see it's from listening guild */
@@ -140,7 +139,6 @@ export class DiscordService {
     }
 
     async handleNewMemberInGuild(newMember: GuildMember) {
-        console.debug('handleNewMemberInGuild::member:', newMember);
         await this.prisma.discordGuildMember.create({
             data: {
                 id: newMember.id,
@@ -256,10 +254,31 @@ export class DiscordService {
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-    async storeDailyAnalyticData() {
-        /** @TODO  */
-    }
+    async countGuildDailyAnalyticData() {
+        const infos = await this.findGuildsInDatabase()
+        const counts = await this.prisma.discordGuildStat.findMany({
+            where: {
+                AND: {
+                    discordGuildId: { in: infos.map(g => g.id) },
+                    createdAt: {
+                        gte: getYesterday()
+                    }
+                }
+            }
+        });
 
+        /** sort from small to large */
+        const sortedByOnlineCount = counts.sort((a, b) => a.onlineMemberCount - b.onlineMemberCount);
+
+        const dailyGuildStats = {
+            dayStart: counts[0],
+            dayEnd: counts[counts.length - 1],
+            highestOnline: sortedByOnlineCount[sortedByOnlineCount.length - 1],
+            lowestOnline: sortedByOnlineCount[0]
+        };
+        console.debug('dailyGuildStats', dailyGuildStats);
+        return dailyGuildStats;
+    }
 
 
 }
