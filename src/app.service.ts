@@ -1,6 +1,4 @@
 import {Injectable, Logger} from '@nestjs/common';
-import axios from 'axios';
-import { CombotAnalyticResult } from './typing/Combot';
 import xlsx from "node-xlsx";
 import * as moment from "moment-timezone";
 import * as fs from "fs";
@@ -26,15 +24,6 @@ export class AppService {
 
   getHello(): string {
     return 'Hello World!';
-  }
-
-  async getTelegramGroupStatFromCombot(groupId: string) {
-    const response = await axios.get<CombotAnalyticResult>(`https://combot.org/c/${groupId}/a/json`, {
-      headers: {
-        Cookie: process.env.COMBOT_COOKIES_STR
-      }
-    });
-    console.info('response', response);
   }
 
   // @Cron(CronExpression.EVERY_5_MINUTES)
