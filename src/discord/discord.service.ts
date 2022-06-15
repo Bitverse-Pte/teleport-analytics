@@ -355,6 +355,7 @@ export class DiscordService {
     /** Export daily data into XLSX */
     async exportGuildDailyData() {
         let head: unknown[] = [
+                'Date',
                 'Total Member(Start)',
                 'Total Member(End)',
                 'Online Member(Lowest)',
@@ -372,6 +373,7 @@ export class DiscordService {
         })
         const datas = entries.map((entry) => {
             return [
+                entry.date.toDateString(),
                 entry.startTotalMemberCount,
                 entry.endTotalMemberCount,
                 entry.lowestOnlineMemberCount,
@@ -391,6 +393,7 @@ export class DiscordService {
         let head: unknown[] = [
             'Channel Name',
             'Channel Type',
+            'Date',
             'Online Member(Start)',
             'Online Member(End)',
             'Total Member(Start)',
@@ -411,6 +414,7 @@ export class DiscordService {
         })
         const datas = entries.map(({
             channel,
+            date,
             startOnlineMemberCount,
             endOnlineMemberCount,
             startTotalMemberCount,
@@ -421,6 +425,7 @@ export class DiscordService {
             return [
                 channel.name,
                 channel.type,
+                date.toDateString(),
                 startOnlineMemberCount,
                 endOnlineMemberCount,
                 startTotalMemberCount,
