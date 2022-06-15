@@ -21,22 +21,4 @@ export class EmailService {
           });
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_8AM)
-    async sendAnalytic() {
-        this.logger.debug('sending email');
-
-        try {
-            // send mail with defined transport object
-            let info = await this.transporter.sendMail({
-                from: `"Analytic Bot by Frank Wei👻" <${process.env.MAIL_ACCOUNT}>`, // sender address
-                to: `${process.env.MAIL_ACCOUNT}`, // list of receivers
-                subject: "Test send email from server", // Subject line
-                text: "Where is my attachment?", // plain text body
-            });
-
-            console.log("Message sent: %s", info.messageId);
-        } catch (error) {
-            this.logger.error('sendAnalytic::error: ', error);
-        }
-    }
 }
