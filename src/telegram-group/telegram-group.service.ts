@@ -294,6 +294,7 @@ export class TelegramGroupService {
    async exportDailyData() {
     let head: unknown[] = [
             'Group ID',
+            'Date',
             'Active Member',
             'Total Message(s)',
             'New Member',
@@ -308,9 +309,10 @@ export class TelegramGroupService {
     })
 
     const datas = entries.map((entry) => {
-        const newMemberConversionRate = entry.activeNewMemberCount / entry.newMemberCount;
+        const newMemberConversionRate = `${((entry.activeNewMemberCount / entry.newMemberCount) * 100).toFixed(2)} %`;
         return [
             entry.groupId.toString(),
+            entry.date.toDateString(),
             entry.activeMemberCount,
             entry.messageCount,
             entry.newMemberCount,
