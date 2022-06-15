@@ -365,10 +365,11 @@ export class DiscordService {
         const weekBefore = getXDaysAgoAtMidnight(7);
         const entries = await this.prisma.discordGuildDailyStat.findMany({
             where: {
-                date: weekBefore
+                date: {
+                    gte: weekBefore
+                }
             }
         })
-
         const datas = entries.map((entry) => {
             return [
                 entry.startTotalMemberCount,
@@ -379,7 +380,6 @@ export class DiscordService {
                 entry.endOnlineMemberCount
             ]
         });
-
         return {
             name: "Discord Server Daily Stats",
             data: [head, ...datas],
@@ -389,22 +389,28 @@ export class DiscordService {
 
     async exportChannelsDailyData() {
         let head: unknown[] = [
+            'Channel Name',
+            'Channel Type',
             'Online Member(Start)',
             'Online Member(End)',
             'Total Member(Start)',
             'Total Member(End)',
             'Total Member(Lowest)',
             'Total Member(Highest)',
-
         ];
         const weekBefore = getXDaysAgoAtMidnight(7);
         const entries = await this.prisma.discordGuildChannelDailyStat.findMany({
             where: {
-                date: weekBefore
+                date: {
+                    gte: weekBefore
+                },
+            },
+            include: {
+                channel: true
             }
         })
-
         const datas = entries.map(({
+            channel,
             startOnlineMemberCount,
             endOnlineMemberCount,
             startTotalMemberCount,
@@ -413,6 +419,8 @@ export class DiscordService {
             highestTotalMemberCount
         }) => {
             return [
+                channel.name,
+                channel.type,
                 startOnlineMemberCount,
                 endOnlineMemberCount,
                 startTotalMemberCount,
@@ -421,7 +429,6 @@ export class DiscordService {
                 highestTotalMemberCount
             ]
         });
-
         return {
             name: "Discord Channels Daily Stats",
             data: [head, ...datas],
