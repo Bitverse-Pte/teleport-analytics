@@ -8,6 +8,7 @@ import {EmailService} from "./email/email.service";
 import {TwitterService} from "./twitter-ads/twitter.service";
 import { DiscordService } from './discord/discord.service';
 import { TelegramGroupService } from './telegram-group/telegram-group.service';
+import { EMAIL_REPORT_RECIPIENTS } from './constant/email_report_receipts';
 
 @Injectable()
 export class AppService {
@@ -53,7 +54,7 @@ export class AppService {
         // send mail with defined transport object
         let info = await this.emailService.transporter.sendMail({
           from: `"Analytic Bot by Frank Wei👻" <${process.env.MAIL_ACCOUNT}>`, // sender address
-          to: `${process.env.MAIL_ACCOUNT}`, // list of receivers
+          to: EMAIL_REPORT_RECIPIENTS.join(', '), // list of receivers
           subject: "Operating Platform Statistics", // Subject line
           attachments: [
             {
