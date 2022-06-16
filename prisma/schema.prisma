@@ -3,6 +3,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // important to support Prisma Query engine in Alpine linux
+  // otherwise "Query engine binary for current platform "linux-musl" could not be found."
+  binaryTargets = ["native", "linux-musl"]
 }
 
 datasource db {
