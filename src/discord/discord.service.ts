@@ -130,6 +130,11 @@ export class DiscordService {
     }
 
     async handleNewMemberInGuild(newMember: GuildMember) {
+        const isMemberJoinBefore = await this.prisma.discordGuildMember.findUnique({ where: { id: newMember.id }});
+        if (isMemberJoinBefore) {
+            /** ignore on duplicated record */
+            return;
+        }
         await this.prisma.discordGuildMember.create({
             data: {
                 id: newMember.id,
