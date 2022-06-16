@@ -185,14 +185,24 @@ export class DiscordService {
         const guildInfo = await this.findGuildInDatabase();
         const guild = this.client.guilds.cache.get(guildInfo.id);
         const guildChannels = guild.channels.valueOf();
+        const guildMembersInDB = await this.prisma.discordGuildMember.findMany({
+            where: {
+                discordGuildId: guildInfo.id
+            }
+        });
+        const guildMemberIdsInDB = guildMembersInDB.map(m => m.id);
         const insertData = guildChannels.map((channel) => {
             const members = (channel.members as ThreadMemberManager).valueOf()?.toJSON() || (channel.members as Collection<string, GuildMember>).toJSON();
+            const memberIds = members
+                .map((m: ThreadMember | GuildMember) => ({
+                    id: m.id
+                }))
+                /** Fix: only connect existed members in DB */
+                .filter(({ id }) => guildMemberIdsInDB.includes(id));
             return {
                 id: channel.id,
                 members: {
-                    connect: members.map((m: ThreadMember | GuildMember) => ({
-                        id: m.id
-                    }))
+                    connect: memberIds
                 }
             }
         });
@@ -202,7 +212,7 @@ export class DiscordService {
                 where: { id },
                 data: {
                     members
-                }
+                },
             })
         }
     }
