@@ -141,11 +141,25 @@ model TelegramChatMember {
   activeDays Int @default(0)
 }
 
-model TelegramGroupDailyStat {
-  id    Int     @default(autoincrement()) @id
+model TelegramGroupStats {
+  id      Int     @id @default(autoincrement())
   // telegram group id
   groupId Decimal @db.Decimal(65, 0)
-  date  DateTime @default(now())
+
+  date DateTime @default(now())
+
+  activeMemberCount Int
+
+  newMemberCount   Int
+  messageCount     Int
+  totalMemberCount Int
+}
+
+model TelegramGroupDailyStat {
+  id      Int      @id @default(autoincrement())
+  // telegram group id
+  groupId Decimal  @db.Decimal(65, 0)
+  date    DateTime @default(now())
 
   newMemberCount Int
   activeNewMemberCount Int

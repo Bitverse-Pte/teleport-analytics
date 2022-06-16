@@ -6,6 +6,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/email/email.service';
 import { getYesterday } from 'src/utils/date';
 import type { Message } from 'telegraf/typings/core/types/typegram';
+import { TelegramGroupStats } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime';
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
@@ -33,7 +35,6 @@ export class TelegramGroupService {
 
     constructor(
         private prisma: PrismaService,
-        private emailService: EmailService
     ) {
         const agent = process.env.PROXY_SETTINGS ? new SocksProxyAgent(process.env.PROXY_SETTINGS) : undefined;
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
@@ -48,7 +49,6 @@ export class TelegramGroupService {
         const listeningChats = await this.prisma.telegramGroup.findMany();
         this.listeningChats = listeningChats.map(c => c.chatId.toNumber());
         this.logger.debug(`Listening chats ${this.listeningChats.join(', ')}`);
-        this.listeningChats.forEach(this._resetCounter.bind(this));
         this.bot.use(async (ctx, next) => {
             const currentChatId = ctx.chat.id;
             if (!this.listeningChats.includes(currentChatId)) {
@@ -72,6 +72,8 @@ export class TelegramGroupService {
         // Enable graceful stop
         process.once('SIGINT', () => this.bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
+        // recover status in case of restart
+        this._recoverCounterFromDB();
     }
 
     private _resetCounter(chatId: number) {
@@ -80,6 +82,43 @@ export class TelegramGroupService {
         this.dailyNewMemberCount[chatId] = 0;
         this.dailyMessageCount[chatId] = 0;
         this.activeMemberCount[chatId] = 0;
+    }
+
+    private async _getLatestCounterFromDB(): Promise<{
+        groupId: TelegramGroupStats['groupId'];
+        activeMemberCount: TelegramGroupStats['activeMemberCount'];
+        newMemberCount: TelegramGroupStats['newMemberCount'];
+        messageCount: TelegramGroupStats['messageCount']
+    }[]> {
+        
+        const latestCounter = await this.prisma.telegramGroupStats.findMany({
+            where: {
+                groupId: { in: this.listeningChats },
+                date: {
+                    gte: getYesterday()
+                }
+            },
+            orderBy: {
+                id: 'desc'
+            }
+        });
+        return this.listeningChats.map((chatId) => {
+            return latestCounter.filter((c) => c.groupId.toNumber() === chatId)[0] || {
+                groupId: new Decimal(chatId),
+                activeMemberCount: 0,
+                newMemberCount: 0,
+                messageCount: 0
+            }
+        })
+    }
+
+    private async _recoverCounterFromDB() {
+        const latestCounters = await this._getLatestCounterFromDB();
+        latestCounters.forEach(stat => {
+            this.dailyNewMemberCount[stat.groupId.toNumber()] = stat.newMemberCount;
+            this.dailyMessageCount[stat.groupId.toNumber()] = stat.messageCount;
+            this.activeMemberCount[stat.groupId.toNumber()] = stat.activeMemberCount;
+        });   
     }
 
     /**
@@ -248,6 +287,25 @@ export class TelegramGroupService {
         }
     }
 
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async saveCurrentTelegramStat() {
+        const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
+
+        this.logger.debug('saveCurrentTelegramStat::counting groupStats');
+        const groupStats = this.listeningChats.map((groupId, idx) => {
+            return {
+                groupId,
+                newMemberCount: this.dailyNewMemberCount[groupId],
+                messageCount: this.dailyMessageCount[groupId],
+                // active member means anyone that send at least 1 message in group
+                activeMemberCount: this.activeMemberCount[groupId],
+                totalMemberCount: totalMemberCounts[idx]
+            };
+        })
+        await this.prisma.telegramGroupStats.createMany({
+            data: groupStats
+        });
+    }
    /**
     * Save yesterday's stat and reset the counter
     */
