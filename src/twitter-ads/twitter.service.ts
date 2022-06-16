@@ -9,6 +9,8 @@ import {EmailService} from "../email/email.service";
 import {getYesterday} from "../utils/date";
 import {WorkSheet} from "node-xlsx";
 
+require('dotenv').config();
+
 const publicClient = new Client(process.env.TWITTER_BEARER_TOKEN)
 
 @Injectable()
@@ -326,7 +328,7 @@ export class TwitterService {
             let authClient = new auth.OAuth2User({
                 client_id: process.env.TWITTER_CLIENT_ID,
                 client_secret: process.env.TWITTER_CLIENT_SECRET,
-                callback: "http://127.0.0.1:3000/twitter/callback",
+                callback: `${process.env.TWITTER_CALLBACK_URL}/twitter/callback`,
                 scopes: ["tweet.read", "users.read", "offline.access"],
             })
             authClient.token = {

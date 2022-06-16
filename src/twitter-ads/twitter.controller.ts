@@ -4,10 +4,12 @@ import { Response } from "express";
 import {auth, Client} from "twitter-api-sdk";
 import {PrismaService} from "../prisma/prisma.service";
 
+require('dotenv').config();
+
 const authClient = new auth.OAuth2User({
     client_id: process.env.TWITTER_CLIENT_ID,
     client_secret: process.env.TWITTER_CLIENT_SECRET,
-    callback: "http://127.0.0.1:3000/twitter/callback",
+    callback: `${process.env.TWITTER_CALLBACK_URL}/twitter/callback`,
     scopes: ["tweet.read", "users.read", "offline.access"],
 })
 const client = new Client(process.env.TWITTER_BEARER_TOKEN)
