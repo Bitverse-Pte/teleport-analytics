@@ -10,4 +10,8 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('/metrics')
+  iAmStillAlive() {
+    return 'Still alive';
+  }
 }
