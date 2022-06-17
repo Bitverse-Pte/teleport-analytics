@@ -42,8 +42,8 @@ export class TwitterService {
             "ids": ids,
             "user.fields": ["public_metrics"]
         }).then(async (resp) => {
-            console.log("account data", resp.data)
             for (const item of resp.data) {
+                this.logger.debug(`get twitter account info ${item.name}`)
                 await this.updateTwitterAccountData(item)
                 await this.insertTwitterAccountRealTimeData(item)
             }
@@ -377,9 +377,14 @@ export class TwitterService {
                 }
             }
         })
+        const accounts = await this.prisma.twitterAccount.findMany()
+        let accountDic: {[id: string]:string} = {}
+        for (const account of accounts) {
+            accountDic[account.accountId] = account.name
+        }
         for (const record of records) {
             data.push([
-                record.id,
+                accountDic[record.twitterAccountId],
                 record.date,
                 record.tweetCount,
                 record.newTweetCount,
@@ -397,7 +402,7 @@ export class TwitterService {
 
     public async exportTweetData(): Promise<WorkSheet> {
         let data: unknown[][] = [
-            ["Account", "Date", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks"],
+            ["Date", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks"],
         ]
         const records = await this.prisma.tweetsDailyStat.findMany({
             where: {
@@ -408,7 +413,6 @@ export class TwitterService {
         })
         for (const record of records) {
             data.push([
-                record.id,
                 record.date,
                 record.impressions,
                 record.retweets,

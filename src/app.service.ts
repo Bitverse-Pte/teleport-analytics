@@ -38,7 +38,7 @@ export class AppService {
 
     let discordGuildSheets = await this.discordService.exportGuildDailyData();
     let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
-    
+
     let buffer = xlsx.build([
       twitterAccountSheet,
       tweetsSheets,
