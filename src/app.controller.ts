@@ -21,4 +21,10 @@ export class AppController {
     }
     return { message: 'Still alive', uptime };
   }
+
+  @Get('/getReportData')
+  async getReportData() {
+    const result = await this.appService.getReportData();
+    return { result }
+  }
 }

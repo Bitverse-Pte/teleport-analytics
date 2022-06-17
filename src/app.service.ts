@@ -32,12 +32,11 @@ export class AppService {
     timeZone: 'Asia/Shanghai'
   })
   private async sendReport() {
-    let twitterAccountSheet = await this.twitter.exportAccountData()
-    let tweetsSheets = await this.twitter.exportTweetData()
-    let telegramSheets = await this.telegramService.exportDailyData();
-
-    let discordGuildSheets = await this.discordService.exportGuildDailyData();
-    let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
+     const { twitterAccountSheet,
+     tweetsSheets,
+     telegramSheets,
+     discordGuildSheets,
+     discordGuildChannelsSheets } = await this.getReportData();
 
     let buffer = xlsx.build([
       twitterAccountSheet,
@@ -71,5 +70,22 @@ export class AppService {
         this.logger.error('sendAnalytic::error: ', error);
       }
     })
+  }
+
+  async getReportData() {
+    let twitterAccountSheet = await this.twitter.exportAccountData()
+    let tweetsSheets = await this.twitter.exportTweetData()
+    let telegramSheets = await this.telegramService.exportDailyData();
+
+    let discordGuildSheets = await this.discordService.exportGuildDailyData();
+    let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
+
+    return {
+      twitterAccountSheet,
+      tweetsSheets,
+      telegramSheets,
+      discordGuildSheets,
+      discordGuildChannelsSheets
+    }
   }
 }
