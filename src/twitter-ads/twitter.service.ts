@@ -55,6 +55,22 @@ export class TwitterService {
     }
 
     /**
+     * Fail safe protocol
+     */
+    private islogTwitterDailyStatExecuted = false;
+    @Cron(`10 08 * * *`)
+    private  _logTwitterDailyStatFailSafe() {
+        /** ignore if it was executed already */
+        if (this.islogTwitterDailyStatExecuted) {
+            // resetting indicator
+            this.islogTwitterDailyStatExecuted = false;
+            return;
+        };
+        /** Otherwise run this incase of ungraceful reboot */
+        this.logTwitterDailyStat();
+    }
+
+    /**
      * generate a daily log for Twitter accounts
      * @private
      */
@@ -103,7 +119,9 @@ export class TwitterService {
             }
         }).catch((error) => {
             this.logger.error(error)
-        })
+        });
+        this.islogTwitterDailyStatExecuted = true;
+        this.logger.verbose('logTwitterDailyStat::exectued');
     }
 
     /**
@@ -115,7 +133,7 @@ export class TwitterService {
         const startTime = moment(new Date()).subtract(1, 'months').toISOString()
         this.logger.debug(`start scan new tweet since ${startTime}`)
         const accounts = await this.prisma.twitterAccount.findMany()
-        for await (const account of accounts) {
+        for (const account of accounts) {
             let authClient = await this.getAccountAuthClient(
                 account.accountId,
                 account.accessToken,
@@ -166,6 +184,23 @@ export class TwitterService {
     }
 
     /**
+     * Fail safe protocol
+     */
+    private islogTweetsDailyStatExecuted = false;
+    @Cron(`12 08 * * *`)
+    private  _logTweetsDailyStatFailSafe() {
+        /** ignore if it was executed already */
+        if (this.islogTweetsDailyStatExecuted) {
+            // resetting indicator
+            this.islogTweetsDailyStatExecuted = false;
+            return;
+        };
+        /** Otherwise run this incase of ungraceful reboot */
+        this.logTweetsDailyStat();
+    }
+
+
+    /**
      * logTweetsDailyStat sync every account for the daily tweet summary
      * @private
      */
@@ -184,7 +219,7 @@ export class TwitterService {
         let urlLinkClicks = 0
         let userProfileClicks = 0
         let videoViews = 0
-        for await  (const account of accounts) {
+        for (const account of accounts) {
             const clientWithAuth = new Client(await this.getAccountAuthClient(
                 account.accountId,
                 account.accessToken,
@@ -221,14 +256,13 @@ export class TwitterService {
                         videoViews: videoViews,
                         replies: replies,
                     }
-                }).then((resp) => {
-                }).catch((error) => {
-                    this.logger.error(error)
                 })
-            }catch (error) {
+            } catch (error) {
                 console.error(error)
             }
         }
+        this.logger.verbose('logTweetsDailyStat::executed')
+        this.islogTweetsDailyStatExecuted = true;
     }
 
     private async updateTwitterAccountData(twitter: components["schemas"]["User"]) {

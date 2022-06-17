@@ -315,6 +315,21 @@ export class TelegramGroupService {
         }
         this.logger.verbose('saveCurrentTelegramStat::finished');
     }
+    /**
+     * Fail safe protocol
+     */
+    private isExecuted = false;
+    @Cron(`16 08 * * *`)
+    private  _logAllTelegramGroupDailyStatsFailSafe() {
+        /** ignore if it was executed already */
+        if (this.isExecuted) {
+            // resetting indicator
+            this.isExecuted = false;
+            return;
+        };
+        /** Otherwise run this incase of ungraceful reboot */
+        this.logAllTelegramGroupDailyStats();
+    }
    /**
     * Save yesterday's stat and reset the counter
     */

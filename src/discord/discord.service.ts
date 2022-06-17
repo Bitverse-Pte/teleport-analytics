@@ -285,6 +285,22 @@ export class DiscordService {
             })
         }
     }
+    /**
+     * Fail safe protocol
+     */
+    private isExecuted = false;
+    @Cron(`14 08 * * *`)
+    private  _countGuildDailyAnalyticDataFailSafe() {
+        /** ignore if it was executed already */
+        if (this.isExecuted) {
+            // resetting indicator
+            this.isExecuted = false;
+            return;
+        };
+        /** Otherwise run this incase of ungraceful reboot */
+        this.countGuildDailyAnalyticData();
+    }
+
     @Cron(`2 08 * * *`, {
         timeZone: 'Asia/Shanghai'
     })
