@@ -8,15 +8,21 @@ import { TwitterModule } from './twitter-ads/twitter.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DiscordModule } from './discord/discord.module';
 import { TwitterController } from './twitter/twitter.controller';
+import { SentryModule } from './sentry/sentry.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    SentryModule.forRoot({
+      dsn: 'https://85896bf421aa4c2c90416f113812daeb@o1290716.ingest.sentry.io/6511932',
+      tracesSampleRate: 1.0,
+      debug: true,
+    }),
     EmailModule,
     TelegramGroupModule,
     TwitterModule,
     PrismaModule,
-    DiscordModule
+    DiscordModule,
   ],
   controllers: [AppController, TwitterController],
   providers: [AppService],
