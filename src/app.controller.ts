@@ -3,7 +3,6 @@ import { AppService } from './app.service';
 import * as moment from 'moment'
 @Controller()
 export class AppController {
-  private readonly appLaunchedAt = Date.now();
   constructor(private readonly appService: AppService) {}
 
   @Get()
@@ -13,12 +12,7 @@ export class AppController {
 
   @Get('/metrics')
   iAmStillAlive() {
-    const msThatLasted = Date.now() - this.appLaunchedAt;
-    const uptime = {
-      appLaunchedAt: moment(this.appLaunchedAt).toLocaleString(),
-      ms: msThatLasted,
-      timeFromNow: moment(this.appLaunchedAt).fromNow()
-    }
+    const uptime = this.appService.getUptime();
     return { message: 'Still alive', uptime };
   }
 
