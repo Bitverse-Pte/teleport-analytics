@@ -2,6 +2,7 @@ import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuildChannelStat } from '@prisma/client';
+import { throws } from 'assert';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
@@ -263,6 +264,7 @@ export class DiscordService {
             console.error('storeCurrentCountOfGuilds::error:', error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
         }
+        this.logger.verbose('storeCurrentCountOfGuilds::finished');
     }
 
     private async _storeCurrentCountOfChannels(onlineMemberCount: number) {

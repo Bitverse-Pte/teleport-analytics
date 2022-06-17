@@ -51,6 +51,7 @@ export class TwitterService {
             this.logger.error('syncAccountData::error', error);
             console.error('syncAccountData::error', error);
         })
+        this.logger.verbose('syncAccountData::finished');
     }
 
     /**
@@ -161,6 +162,7 @@ export class TwitterService {
                 this.logger.error(error.toString())
             }
         }
+        this.logger.verbose('scanTweetList::finished');
     }
 
     /**

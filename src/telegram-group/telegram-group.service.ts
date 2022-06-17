@@ -313,6 +313,7 @@ export class TelegramGroupService {
             console.error('storeCurrentCountOfGuilds::error:', error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
         }
+        this.logger.verbose('saveCurrentTelegramStat::finished');
     }
    /**
     * Save yesterday's stat and reset the counter
