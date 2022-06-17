@@ -45,6 +45,10 @@ export class TelegramGroupService {
        this._init();
     }
 
+    stopListening() {
+        this.bot.stop();
+    }
+
     private async _init() {
         const listeningChats = await this.prisma.telegramGroup.findMany();
         this.listeningChats = listeningChats.map(c => c.chatId.toNumber());
