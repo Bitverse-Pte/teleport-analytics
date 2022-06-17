@@ -5,8 +5,12 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class TwitterController {
     constructor(
         private readonly prisma: PrismaService
-    ) {
+    ) {}
 
+    @Get('/account/list')
+    async getAccountList() {
+        const stats = await this.prisma.twitterAccount.findMany();
+        return { stats }
     }
 
     @Get('/account/realTimeStat')
