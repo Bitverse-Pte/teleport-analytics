@@ -289,22 +289,26 @@ export class TelegramGroupService {
 
     @Cron(CronExpression.EVERY_5_MINUTES)
     async saveCurrentTelegramStat() {
-        const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
-
-        this.logger.debug('saveCurrentTelegramStat::counting groupStats');
-        const groupStats = this.listeningChats.map((groupId, idx) => {
-            return {
-                groupId,
-                newMemberCount: this.dailyNewMemberCount[groupId],
-                messageCount: this.dailyMessageCount[groupId],
-                // active member means anyone that send at least 1 message in group
-                activeMemberCount: this.activeMemberCount[groupId],
-                totalMemberCount: totalMemberCounts[idx]
-            };
-        })
-        await this.prisma.telegramGroupStats.createMany({
-            data: groupStats
-        });
+        try {
+            const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
+            this.logger.debug('saveCurrentTelegramStat::counting groupStats');
+            const groupStats = this.listeningChats.map((groupId, idx) => {
+                return {
+                    groupId,
+                    newMemberCount: this.dailyNewMemberCount[groupId],
+                    messageCount: this.dailyMessageCount[groupId],
+                    // active member means anyone that send at least 1 message in group
+                    activeMemberCount: this.activeMemberCount[groupId],
+                    totalMemberCount: totalMemberCounts[idx]
+                };
+            })
+            await this.prisma.telegramGroupStats.createMany({
+                data: groupStats
+            });
+        } catch (error) {
+            console.error('storeCurrentCountOfGuilds::error:', error);
+            this.logger.error('storeCurrentCountOfGuilds::error:', error);
+        }
     }
    /**
     * Save yesterday's stat and reset the counter

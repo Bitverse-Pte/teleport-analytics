@@ -236,21 +236,26 @@ export class DiscordService {
 
     @Cron(CronExpression.EVERY_5_MINUTES)
     async storeCurrentCountOfGuilds() {
-        this.logger.debug('Persist Listening Guilds Stats into Database.');
-        const guildInfo = await this.findGuildInDatabase();
+        try {
+            this.logger.debug('Persist Listening Guilds Stats into Database.');
+            const guildInfo = await this.findGuildInDatabase();
 
-        const counts = await this.getCurrentCountOfGuild(guildInfo.id);
-        console.debug('storeCurrentCountOfGuilds::counts', counts);
+            const counts = await this.getCurrentCountOfGuild(guildInfo.id);
+            console.debug('storeCurrentCountOfGuilds::counts', counts);
 
-        await this.prisma.discordGuildStat.create({
-            data: ({
-                discordGuildId: guildInfo.id,
-                totalMemberCount: counts.totalMemberCount,
-                onlineMemberCount: counts.onlineMemberCount
+            await this.prisma.discordGuildStat.create({
+                data: ({
+                    discordGuildId: guildInfo.id,
+                    totalMemberCount: counts.totalMemberCount,
+                    onlineMemberCount: counts.onlineMemberCount
+                })
             })
-        })
-        /** no online counter for this, since member status is universal, just use this */
-        this._storeCurrentCountOfChannels(counts.onlineMemberCount)
+            /** no online counter for this, since member status is universal, just use this */
+            this._storeCurrentCountOfChannels(counts.onlineMemberCount)
+        } catch (error) {
+            console.error('storeCurrentCountOfGuilds::error:', error);
+            this.logger.error('storeCurrentCountOfGuilds::error:', error);
+        }
     }
 
     private async _storeCurrentCountOfChannels(onlineMemberCount: number) {
