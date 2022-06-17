@@ -23,8 +23,7 @@ export class TwitterService {
     ) {
         this._init()
     }
-    private async _init() {
-    }
+    private async _init() {}
 
     /**
      * request account information every 5 minutes,
@@ -194,7 +193,7 @@ export class TwitterService {
                     max_results: 100,
                     "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
                     exclude: ["replies", "retweets"],
-                    start_time: moment().startOf('day').toISOString(),
+                    start_time: moment().tz('Asia/Shanghai').startOf('day').toISOString(),
                 })
                 if (!resp.data) {
                     continue
