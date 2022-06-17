@@ -221,7 +221,10 @@ export class DiscordService {
 
     /** Analytic about guild / channel*/
     async getCurrentCountOfGuild(guildId: string): Promise<{ totalMemberCount: number, onlineMemberCount: number }> {
-        const guild = this.client.guilds.cache.get(guildId);
+        const guild = await this.client.guilds.fetch({
+            guild: guildId,
+            withCounts: true
+        })
         const totalMemberCount = guild.memberCount;
         const fetchedMembers = await guild.members.fetch({
             withPresences: true,
