@@ -309,7 +309,7 @@ export class TelegramGroupService {
    /**
     * Save yesterday's stat and reset the counter
     */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    @Cron(CronExpression.EVERY_DAY_AT_8AM, {
         timeZone: 'Asia/Shanghai'
     })
     async logAllTelegramGroupDailyStats() {

@@ -180,7 +180,7 @@ export class DiscordService {
         await this.syncMembersInChannels();
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    @Cron(CronExpression.EVERY_DAY_AT_8AM, {
         timeZone: 'Asia/Shanghai'
     })
     private async syncMembersInChannels() {
@@ -272,7 +272,7 @@ export class DiscordService {
         }
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    @Cron(CronExpression.EVERY_DAY_AT_8AM, {
         timeZone: 'Asia/Shanghai'
     })
     async countGuildDailyAnalyticData() {

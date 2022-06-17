@@ -57,7 +57,7 @@ export class TwitterService {
      * generate a daily log for Twitter accounts
      * @private
      */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    @Cron(CronExpression.EVERY_DAY_AT_8AM, {
         timeZone: 'Asia/Shanghai'
     })
     private async logTwitterDailyStat() {
@@ -167,7 +167,7 @@ export class TwitterService {
      * logTweetsDailyStat sync every account for the daily tweet summary
      * @private
      */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    @Cron(CronExpression.EVERY_DAY_AT_8AM, {
         timeZone: 'Asia/Shanghai'
     })
     async logTweetsDailyStat() {
