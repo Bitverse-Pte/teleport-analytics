@@ -6,6 +6,8 @@ import { throws } from 'assert';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
+import * as Sentry from '@sentry/node';
+
 require('dotenv').config();
 
 @Injectable()
@@ -261,7 +263,7 @@ export class DiscordService {
             /** no online counter for this, since member status is universal, just use this */
             this._storeCurrentCountOfChannels(counts.onlineMemberCount)
         } catch (error) {
-            console.error('storeCurrentCountOfGuilds::error:', error);
+            Sentry.captureException(error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
         }
         this.logger.verbose('storeCurrentCountOfGuilds::finished');

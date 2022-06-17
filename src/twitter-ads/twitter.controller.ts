@@ -3,6 +3,7 @@ import { TwitterService } from "./twitter.service";
 import { Response } from "express";
 import {auth, Client} from "twitter-api-sdk";
 import {PrismaService} from "../prisma/prisma.service";
+import * as Sentry from '@sentry/node';
 
 require('dotenv').config();
 
@@ -74,7 +75,8 @@ export class TwitterController {
                         tweetCount: 0,
                     }
                 }).catch((error) => {
-                    console.error(error)
+                    console.error(error);
+                    Sentry.captureException(error);
                 })
                 return res.status(HttpStatus.OK).send('Create twitter account success')
             }

@@ -8,6 +8,8 @@ import { getYesterday } from 'src/utils/date';
 import type { Message } from 'telegraf/typings/core/types/typegram';
 import { TelegramGroupStats } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime';
+import * as Sentry from '@sentry/node';
+
 require('dotenv').config();
 
 type ListeningMessageTypes = 'text' | 'voice' | 'video' | 'sticker' | 'photo'
@@ -283,6 +285,7 @@ export class TelegramGroupService {
             this.messageToBeHandled = [];
         } catch (error) {
             this.logger.error(`handleMessageQueue::Error happened:`, error);
+            Sentry.captureException(error);
         } finally {
             /**
              * Release the lock no matter what
@@ -310,7 +313,7 @@ export class TelegramGroupService {
                 data: groupStats
             });
         } catch (error) {
-            console.error('storeCurrentCountOfGuilds::error:', error);
+            Sentry.captureException(error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
         }
         this.logger.verbose('saveCurrentTelegramStat::finished');

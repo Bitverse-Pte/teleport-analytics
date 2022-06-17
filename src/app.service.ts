@@ -9,7 +9,7 @@ import {TwitterService} from "./twitter-ads/twitter.service";
 import { DiscordService } from './discord/discord.service';
 import { TelegramGroupService } from './telegram-group/telegram-group.service';
 import { EMAIL_REPORT_RECIPIENTS } from './constant/email_report_receipts';
-
+import * as Sentry from '@sentry/node';
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
@@ -49,6 +49,7 @@ export class AppService {
     fs.writeFile(filename, buffer, async err => {
       if (err) {
         console.error(err)
+        Sentry.captureException(err);
         return
       }
       try {

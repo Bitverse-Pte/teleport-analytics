@@ -8,6 +8,7 @@ import * as moment from 'moment-timezone'
 import {EmailService} from "../email/email.service";
 import {getYesterday} from "../utils/date";
 import {WorkSheet} from "node-xlsx";
+import * as Sentry from '@sentry/node';
 
 require('dotenv').config();
 
@@ -49,7 +50,7 @@ export class TwitterService {
             }
         }).catch((error) => {
             this.logger.error('syncAccountData::error', error);
-            console.error('syncAccountData::error', error);
+            Sentry.captureException(error);
         })
         this.logger.verbose('syncAccountData::finished');
     }
@@ -115,10 +116,12 @@ export class TwitterService {
                 }).then(() => {
                 }).catch((error) => {
                     this.logger.error(error)
+                    Sentry.captureException(error);
                 })
             }
         }).catch((error) => {
             this.logger.error(error)
+            Sentry.captureException(error);
         });
         this.islogTwitterDailyStatExecuted = true;
         this.logger.verbose('logTwitterDailyStat::exectued');
@@ -176,7 +179,7 @@ export class TwitterService {
                     await this.insertTweetRealTimeData(tweet)
                 }
             } catch (error) {
-                console.error('scanTweetList::error:', error)
+                Sentry.captureException(error);
                 this.logger.error(error.toString())
             }
         }
@@ -258,6 +261,7 @@ export class TwitterService {
                     }
                 })
             } catch (error) {
+                Sentry.captureException(error);
                 console.error(error)
             }
         }
@@ -277,6 +281,7 @@ export class TwitterService {
         }).then(() => {
 
         }).catch((error) => {
+            Sentry.captureException(error);
             console.error(error)
         })
     }
@@ -292,6 +297,7 @@ export class TwitterService {
             }
         }).then((resp) => {
         }).catch((error) => {
+            Sentry.captureException(error);
             this.logger.error(error)
         })
     }
@@ -319,6 +325,7 @@ export class TwitterService {
                 }
             }).then().catch((error) => {
                 this.logger.error(`update tweet data failed: ${tweet.id}`)
+                Sentry.captureException(error);
                 this.logger.error(error.toString())
             })
         }else {
@@ -339,6 +346,7 @@ export class TwitterService {
                 },
             }).then((resp) => {}).catch((error) => {
                 this.logger.error(`update tweet data failed: ${tweet.id}`)
+                Sentry.captureException(error);
                 this.logger.error(error.toString())
             })
         }
@@ -359,6 +367,7 @@ export class TwitterService {
             }
         }).then((resp) => {
         }).catch((error) => {
+            Sentry.captureException(error);
             this.logger.error(error)
         })
     }
