@@ -283,9 +283,7 @@ export class DiscordService {
             })
         }
     }
-
-    // @Cron(CronExpression.EVERY_DAY_AT_8AM, {
-    @Cron(`05 16 * * *`, {
+    @Cron(`2 08 * * *`, {
         timeZone: 'Asia/Shanghai'
     })
     async countGuildDailyAnalyticData() {
