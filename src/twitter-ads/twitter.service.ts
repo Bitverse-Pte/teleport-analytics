@@ -57,7 +57,9 @@ export class TwitterService {
      * generate a daily log for Twitter accounts
      * @private
      */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+        timeZone: 'Asia/Shanghai'
+    })
     private async logTwitterDailyStat() {
         this.logger.debug('start log daily info')
         const accounts = await this.prisma.twitterAccount.findMany()
@@ -165,7 +167,9 @@ export class TwitterService {
      * logTweetsDailyStat sync every account for the daily tweet summary
      * @private
      */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+        timeZone: 'Asia/Shanghai'
+    })
     async logTweetsDailyStat() {
         this.logger.debug('start daily tweets log')
         const accounts = await this.prisma.twitterAccount.findMany()
