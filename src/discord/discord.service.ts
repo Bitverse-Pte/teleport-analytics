@@ -180,8 +180,11 @@ export class DiscordService {
         await this.syncMembersInChannels();
     }
 
-    // @Cron(CronExpression.EVERY_DAY_AT_8AM, {
-    @Cron(`19 16 * * *`, {
+    /**
+     * Member <=> Channel relationship only updated once a day
+     * and should do it at 6AM
+     */
+    @Cron(CronExpression.EVERY_DAY_AT_6AM, {
         timeZone: 'Asia/Shanghai'
     })
     private async syncMembersInChannels() {
