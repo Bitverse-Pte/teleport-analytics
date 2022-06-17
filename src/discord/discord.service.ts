@@ -310,7 +310,7 @@ export class DiscordService {
                 startOnlineMemberCount: dailyGuildStats.dayStart.onlineMemberCount,
                 endTotalMemberCount: dailyGuildStats.dayEnd.totalMemberCount,
                 endOnlineMemberCount: dailyGuildStats.dayEnd.onlineMemberCount,
-              
+                date: getYesterday(),
                 highestOnlineMemberCount: dailyGuildStats.highestOnline.onlineMemberCount,
                 lowestOnlineMemberCount: dailyGuildStats.lowestOnline.onlineMemberCount,
             }
@@ -365,6 +365,7 @@ export class DiscordService {
                 const vals = channelIdToStats.get(id);
                 return {
                     discordChannelId: id,
+                    date: getYesterday(),
                     startOnlineMemberCount: vals.dayStart.onlineMemberCount,
                     endOnlineMemberCount: vals.dayEnd.onlineMemberCount,
                     startTotalMemberCount: vals.dayStart.totalMemberCount,
