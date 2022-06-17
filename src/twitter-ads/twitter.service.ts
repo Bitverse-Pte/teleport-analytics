@@ -48,7 +48,8 @@ export class TwitterService {
                 await this.insertTwitterAccountRealTimeData(item)
             }
         }).catch((error) => {
-            this.logger.error(error)
+            this.logger.error('syncAccountData::error', error);
+            console.error('syncAccountData::error', error);
         })
     }
 
@@ -156,7 +157,7 @@ export class TwitterService {
                     await this.insertTweetRealTimeData(tweet)
                 }
             } catch (error) {
-                console.error(error)
+                console.error('scanTweetList::error:', error)
                 this.logger.error(error.toString())
             }
         }
