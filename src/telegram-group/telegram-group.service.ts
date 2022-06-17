@@ -309,7 +309,9 @@ export class TelegramGroupService {
    /**
     * Save yesterday's stat and reset the counter
     */
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+        timeZone: 'Asia/Shanghai'
+    })
     async logAllTelegramGroupDailyStats() {
         const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
         const yesterday = getYesterday();

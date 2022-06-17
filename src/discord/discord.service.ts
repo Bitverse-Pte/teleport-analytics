@@ -180,7 +180,9 @@ export class DiscordService {
         await this.syncMembersInChannels();
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+        timeZone: 'Asia/Shanghai'
+    })
     private async syncMembersInChannels() {
         const guildInfo = await this.findGuildInDatabase();
         const guild = this.client.guilds.cache.get(guildInfo.id);
@@ -270,7 +272,9 @@ export class DiscordService {
         }
     }
 
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+        timeZone: 'Asia/Shanghai'
+    })
     async countGuildDailyAnalyticData() {
         const guildInfo = await this.findGuildInDatabase()
         const counts = await this.prisma.discordGuildStat.findMany({

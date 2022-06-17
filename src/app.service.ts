@@ -28,7 +28,9 @@ export class AppService {
   }
 
   // @Cron(CronExpression.EVERY_5_MINUTES)
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  @Cron(CronExpression.EVERY_DAY_AT_10AM, {
+    timeZone: 'Asia/Shanghai'
+  })
   private async sendReport() {
     let twitterAccountSheet = await this.twitter.exportAccountData()
     let tweetsSheets = await this.twitter.exportTweetData()

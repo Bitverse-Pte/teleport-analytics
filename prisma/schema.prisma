@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // important to support Prisma Query engine in Alpine linux
   // otherwise "Query engine binary for current platform "linux-musl" could not be found."
   binaryTargets = ["native", "linux-musl"]
@@ -14,11 +14,11 @@ datasource db {
 }
 
 model DiscordGuild {
-  id                    String                  @id
-  channels              DiscordChannel[]
-  members               DiscordGuildMember[]
-  discordGuildStats     DiscordGuildStat[]
-  guildDailyStats       DiscordGuildDailyStat[]
+  id                String                  @id
+  channels          DiscordChannel[]
+  members           DiscordGuildMember[]
+  discordGuildStats DiscordGuildStat[]
+  guildDailyStats   DiscordGuildDailyStat[]
 }
 
 model DiscordGuildMember {
@@ -84,8 +84,8 @@ model DiscordChannel {
   type      DiscordChannelType
   createdAt DateTime
 
-  members                      DiscordGuildMember[]
-  channelStats                 DiscordGuildChannelStat[]
+  members      DiscordGuildMember[]
+  channelStats DiscordGuildChannelStat[]
 
   DailyStats DiscordGuildChannelDailyStat[]
 }
@@ -123,22 +123,22 @@ model DiscordGuildChannelDailyStat {
 }
 
 model TelegramGroup {
-  id    Int @default(autoincrement()) @id
+  id     Int     @id @default(autoincrement())
   chatId Decimal @db.Decimal(65, 0)
 }
 
 model TelegramChatMember {
-  id    Int @default(autoincrement()) @id
+  id      Int     @id @default(autoincrement())
   // telegram users id
-  userId Decimal @db.Decimal(65, 0)
+  userId  Decimal @db.Decimal(65, 0)
   // groups id
   groupId Decimal @db.Decimal(65, 0)
 
   joinAt DateTime @default(now())
 
-  messageCount Int @default(0)
-  lastSeen DateTime @default(now())
-  activeDays Int @default(0)
+  messageCount Int      @default(0)
+  lastSeen     DateTime @default(now())
+  activeDays   Int      @default(0)
 }
 
 model TelegramGroupStats {
@@ -161,101 +161,102 @@ model TelegramGroupDailyStat {
   groupId Decimal  @db.Decimal(65, 0)
   date    DateTime @default(now())
 
-  newMemberCount Int
+  newMemberCount       Int
   activeNewMemberCount Int
-  messageCount Int
+  messageCount         Int
   // active member means anyone that send at least 1 message in group
-  activeMemberCount Int
-  totalMemberCount Int
+  activeMemberCount    Int
+  totalMemberCount     Int
 }
 
 model TwitterAccount {
-    id Int @default(autoincrement()) @id
-    name String
-    username String
-    accountId String @unique
-    accessToken String
-    refreshToken String
-    expiresAt DateTime
+  id           Int      @id @default(autoincrement())
+  name         String
+  username     String
+  accountId    String   @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
 
-    followersCount Int @default(0)
-    tweetCount Int @default(0)
+  followersCount Int @default(0)
+  tweetCount     Int @default(0)
 }
 
 model TwitterAccountRealTimeStat {
-    id Int @default(autoincrement()) @id
-    // TwitterAccount id
-    twitterAccountId String
-    date DateTime @default(now())
-    followersCount Int @default(0)
-    followingCount Int @default(0)
-    tweetCount Int @default(0)
-    listedCount Int @default(0)
+  id               Int      @id @default(autoincrement())
+  // TwitterAccount id
+  twitterAccountId String
+  date             DateTime @default(now())
+  followersCount   Int      @default(0)
+  followingCount   Int      @default(0)
+  tweetCount       Int      @default(0)
+  listedCount      Int      @default(0)
 
-    @@index([twitterAccountId])
+  @@index([twitterAccountId])
 }
 
 model TwitterAccountDailyStat {
-    id Int @default(autoincrement()) @id
-    // TwitterAccount id
-    twitterAccountId String
-    date DateTime @default(now())
-    followersCount Int @default(0)
-    newFollowersCount Int @default(0)
-    tweetCount Int @default(0)
-    newTweetCount Int @default(0)
-     @@index([twitterAccountId])
+  id                Int      @id @default(autoincrement())
+  // TwitterAccount id
+  twitterAccountId  String
+  date              DateTime @default(now())
+  followersCount    Int      @default(0)
+  newFollowersCount Int      @default(0)
+  tweetCount        Int      @default(0)
+  newTweetCount     Int      @default(0)
+
+  @@index([twitterAccountId])
 }
 
 model Tweet {
-    id Int @default(autoincrement()) @id
-    tweetId String @unique
-    // TwitterAccount id
-    twitterAccountId String
-    createdAt DateTime
-    // text record the substring(0, 100) for a tweet, we don't need all content
-    text String
+  id               Int      @id @default(autoincrement())
+  tweetId          String   @unique
+  // TwitterAccount id
+  twitterAccountId String
+  createdAt        DateTime
+  // text record the substring(0, 100) for a tweet, we don't need all content
+  text             String
 
-    impressions Int @default(0)
-    retweets Int @default(0)
-    quoteTweets Int @default(0)
-    likes Int @default(0)
-    replies Int @default(0)
-    urlLinkClicks Int @default(0)
-    userProfileClicks Int @default(0)
-    videoViews Int @default(0)
+  impressions       Int @default(0)
+  retweets          Int @default(0)
+  quoteTweets       Int @default(0)
+  likes             Int @default(0)
+  replies           Int @default(0)
+  urlLinkClicks     Int @default(0)
+  userProfileClicks Int @default(0)
+  videoViews        Int @default(0)
 
-     @@index([twitterAccountId, tweetId])
+  @@index([twitterAccountId, tweetId])
 }
 
 model TweetsDailyStat {
-    id Int @default(autoincrement()) @id
-    date DateTime @default(now())
-    tweetsCount Int @default(0)
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  tweetsCount Int      @default(0)
 
-    impressions Int @default(0)
-    retweets Int @default(0)
-    quoteTweets Int @default(0)
-    likes Int @default(0)
-    replies Int @default(0)
-    urlLinkClicks Int @default(0)
-    userProfileClicks Int @default(0)
-    videoViews Int @default(0)
+  impressions       Int @default(0)
+  retweets          Int @default(0)
+  quoteTweets       Int @default(0)
+  likes             Int @default(0)
+  replies           Int @default(0)
+  urlLinkClicks     Int @default(0)
+  userProfileClicks Int @default(0)
+  videoViews        Int @default(0)
 }
 
 model TweetRealTimeStat {
-    id Int @default(autoincrement()) @id
-    tweetId String
-    date DateTime @default(now())
+  id      Int      @id @default(autoincrement())
+  tweetId String
+  date    DateTime @default(now())
 
-    impressions Int @default(0)
-    retweets Int @default(0)
-    quoteTweets Int @default(0)
-    likes Int @default(0)
-    replies Int @default(0)
-    urlLinkClicks Int @default(0)
-    userProfileClicks Int @default(0)
-    videoViews Int @default(0)
+  impressions       Int @default(0)
+  retweets          Int @default(0)
+  quoteTweets       Int @default(0)
+  likes             Int @default(0)
+  replies           Int @default(0)
+  urlLinkClicks     Int @default(0)
+  userProfileClicks Int @default(0)
+  videoViews        Int @default(0)
 
-    @@index([tweetId])
+  @@index([tweetId])
 }
