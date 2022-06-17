@@ -7,6 +7,7 @@ import { TelegramGroupModule } from './telegram-group/telegram-group.module';
 import { TwitterModule } from './twitter-ads/twitter.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DiscordModule } from './discord/discord.module';
+import { TwitterController } from './twitter/twitter.controller';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { DiscordModule } from './discord/discord.module';
     PrismaModule,
     DiscordModule
   ],
-  controllers: [AppController],
+  controllers: [AppController, TwitterController],
   providers: [AppService],
 })
 export class AppModule {}
