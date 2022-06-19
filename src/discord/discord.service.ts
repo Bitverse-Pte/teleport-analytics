@@ -275,8 +275,9 @@ export class DiscordService {
                 members: true
             }
         });
-        for (const channel of channelsInfo) {
-            await this.prisma.discordGuildChannelStat.create({
+        /** use transaction to batch those create */
+        await this.prisma.$transaction(
+            channelsInfo.map(channel => this.prisma.discordGuildChannelStat.create({
                 data: {
                     totalMemberCount: channel.members.length,
                     onlineMemberCount,
@@ -284,8 +285,8 @@ export class DiscordService {
                         id: channel.id
                     } }
                 }
-            })
-        }
+            }))
+        );
     }
     /**
      * Fail safe protocol
