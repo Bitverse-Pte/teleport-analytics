@@ -42,7 +42,7 @@ export class AppService {
   @Cron(CronExpression.EVERY_DAY_AT_10AM, {
     timeZone: 'Asia/Shanghai'
   })
-  private async sendReport() {
+  async sendReport() {
      const { twitterAccountSheet,
      tweetsSheets,
      telegramSheets,

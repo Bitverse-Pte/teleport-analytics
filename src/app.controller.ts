@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import * as moment from 'moment'
 @Controller()
@@ -20,5 +20,11 @@ export class AppController {
   async getReportData() {
     const result = await this.appService.getReportData();
     return { result }
+  }
+
+  @Post('/sendReport')
+  async triggerSendReport() {
+    await this.appService.sendReport();
+    return 'OK';
   }
 }
