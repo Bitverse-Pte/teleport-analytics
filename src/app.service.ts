@@ -100,4 +100,30 @@ export class AppService {
       discordGuildChannelsSheets
     }
   }
+
+  async getCurrentPlatformStats() {
+    let twitterAccountSheet = await this.twitter.exportAccountData()
+    let tweetsSheets = await this.twitter.exportTweetData();
+    console.info('tweetsSheets', tweetsSheets);
+    let telegramSheets = await this.telegramService.exportCurrentStat();
+
+    let discordGuildSheets = await this.discordService.exportGuildCurrentStat();
+    let discordGuildChannelsSheets = await this.discordService.exportChannelsCurrentStat();
+
+    let buffer = xlsx.build([
+      twitterAccountSheet,
+      tweetsSheets,
+      telegramSheets,
+      discordGuildSheets,
+      discordGuildChannelsSheets
+    ])
+    let filename = `TeleportChain-Stats-${moment().format('YYYYMMDD')}.xlsx`
+    fs.writeFile(filename, buffer, async (err) => {
+      if (err) {
+        console.error(err)
+        Sentry.captureException(err);
+        return
+      }
+    });
+  }
 }
