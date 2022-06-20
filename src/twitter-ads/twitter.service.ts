@@ -191,15 +191,16 @@ export class TwitterService {
      */
     private islogTweetsDailyStatExecuted = false;
     @Cron(`12 08 * * *`)
-    private  _logTweetsDailyStatFailSafe() {
+    private async _logTweetsDailyStatFailSafe() {
         /** ignore if it was executed already */
         if (this.islogTweetsDailyStatExecuted) {
             // resetting indicator
             this.islogTweetsDailyStatExecuted = false;
             return;
-        };
+        }
+        ;
         /** Otherwise run this incase of ungraceful reboot */
-        this.logTweetsDailyStat();
+        await this.logTweetsDailyStat();
     }
 
 
@@ -449,22 +450,97 @@ export class TwitterService {
         let data: unknown[][] = [
             ["Date", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks"],
         ]
-        const records = await this.prisma.tweetsDailyStat.findMany({
-            where: {
-                date: {
-                    gte: getYesterday()
-                }
+        // const records = await this.prisma.tweetsDailyStat.findMany({
+        //     where: {
+        //         date: {
+        //             gte: getYesterday()
+        //         }
+        //     }
+        // })
+        // for (const record of records) {
+        //     data.push([
+        //         record.date,
+        //         record.impressions,
+        //         record.retweets,
+        //         record.quoteTweets,
+        //         record.likes,
+        //         record.replies,
+        //         record.userProfileClicks,
+        //     ])
+        // }
+        const startTime = moment(new Date()).subtract(1, 'months').toISOString()
+        const accounts = await this.prisma.twitterAccount.findMany()
+        for (const account of accounts) {
+            let authClient = await this.getAccountAuthClient(
+                account.accountId,
+                account.accessToken,
+                account.refreshToken,
+                account.expiresAt,
+            )
+            let client = new Client(authClient)
+            if (!client) {
+                continue
             }
-        })
-        for (const record of records) {
+            let tweetsCount = 0
+            let impressions = 0
+            let retweets = 0
+            let quoteTweets = 0
+            let likes = 0
+            let replies = 0
+            let urlLinkClicks = 0
+            let userProfileClicks = 0
+            let videoViews = 0
+            try {
+                let tweets = []
+                let hasNextPage = true
+                let nextToken = null
+                while (hasNextPage) {
+                    let resp = await client.tweets.usersIdTweets(account.accountId, {
+                        max_results: 100,
+                        exclude: ["replies", "retweets"],
+                        "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
+                        pagination_token: nextToken ? nextToken : "",
+                        start_time: startTime,
+                    })
+                    if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
+                        if (resp.data) {
+                            tweets.push.apply(tweets, resp.data)
+                        }
+                        if (resp.meta.next_token) {
+                            nextToken = resp.meta.next_token
+                        }else {
+                            hasNextPage = false
+                        }
+                    }else {
+                        hasNextPage = false
+                    }
+                }
+
+                this.logger.debug(`get ${tweets.length} tweet info`)
+                for await (const tweet of tweets) {
+                    tweetsCount+=1
+                    impressions+=tweet.impressions
+                    retweets+=tweet.retweets
+                    quoteTweets+=tweet.quoteTweets
+                    likes+=tweet.likes
+                    replies+=tweet.replies
+                    urlLinkClicks+=tweet.urlLinkClicks
+                    userProfileClicks+=tweet.userProfileClicks
+                    videoViews+=tweet.videoViews
+                }
+            } catch (error) {
+                Sentry.captureException(error);
+                this.logger.error(error.toString())
+            }
+
             data.push([
-                record.date,
-                record.impressions,
-                record.retweets,
-                record.quoteTweets,
-                record.likes,
-                record.replies,
-                record.userProfileClicks,
+                moment().toString(),
+                impressions,
+                retweets,
+                quoteTweets,
+                likes,
+                replies,
+                userProfileClicks,
             ])
         }
 
