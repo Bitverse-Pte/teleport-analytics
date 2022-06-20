@@ -552,13 +552,13 @@ export class TwitterService {
                 this.logger.debug(`get ${tweets.length} tweet info`)
                 for await (const tweet of tweets) {
                     tweetsCount+=1
-                    impressions+=tweet.non_public_metrics.impressions
-                    retweets+=tweet.public_metrics.retweets
-                    quoteTweets+=tweet.public_metrics.quoteTweets
-                    likes+=tweet.public_metrics.likes
-                    replies+=tweet.public_metrics.replies
+                    impressions+=tweet.non_public_metrics.impression_count
+                    retweets+=tweet.public_metrics.retweet_count
+                    quoteTweets+=tweet.public_metrics.quote_count
+                    likes+=tweet.public_metrics.like_count
+                    replies+=tweet.public_metrics.reply_count
                     // urlLinkClicks+=tweet.urlLinkClicks
-                    // userProfileClicks+=tweet.userProfileClicks
+                    userProfileClicks+=tweet.non_public_metrics.user_profile_clicks
                     // videoViews+=tweet.videoViews
                 }
             } catch (error) {
