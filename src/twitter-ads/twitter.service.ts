@@ -416,28 +416,56 @@ export class TwitterService {
         let data: unknown[][] = [
             ["Account", "Date", "Tweets", "New Tweets", "Followers", "New Followers"]
         ]
-        const records = await this.prisma.twitterAccountDailyStat.findMany({
-            where: {
-                date: {
-                    gte: getYesterday()
-                }
-            }
-        })
-        const accounts = await this.prisma.twitterAccount.findMany()
+        let accounts = await this.prisma.twitterAccount.findMany()
         let accountDic: {[id: string]:string} = {}
         for (const account of accounts) {
             accountDic[account.accountId] = account.name
         }
-        for (const record of records) {
-            data.push([
-                accountDic[record.twitterAccountId],
-                record.date,
-                record.tweetCount,
-                record.newTweetCount,
-                record.followersCount,
-                record.newFollowersCount,
-            ])
+        let ids = accounts.map(one => one.accountId)
+        if (ids.length === 0) {
+            return
         }
+        await publicClient.users.findUsersById({
+            "ids": ids,
+            "user.fields": ["public_metrics"]
+        }).then(async (resp) => {
+            for (const item of resp.data) {
+                this.logger.debug(`get twitter account info ${item.name}`)
+                data.push([
+                    accountDic[item.id],
+                    moment().toString(),
+                    item.public_metrics.tweet_count,
+                    "0",
+                    item.public_metrics.followers_count,
+                    "0",
+                ])
+            }
+        }).catch((error) => {
+            this.logger.error('syncAccountData::error', error);
+            Sentry.captureException(error);
+        })
+        // const records = await this.prisma.twitterAccountDailyStat.findMany({
+        //     where: {
+        //         date: {
+        //             gte: getYesterday()
+        //         }
+        //     }
+        // })
+        // const accounts = await this.prisma.twitterAccount.findMany()
+        // let accountDic: {[id: string]:string} = {}
+        // for (const account of accounts) {
+        //     accountDic[account.accountId] = account.name
+        // }
+        // for (const record of records) {
+        //     data.push([
+        //         accountDic[record.twitterAccountId],
+        //         record.date,
+        //         record.tweetCount,
+        //         record.newTweetCount,
+        //         record.followersCount,
+        //         record.newFollowersCount,
+        //     ])
+        // }
 
         return {
             name: "Twitter Account",
