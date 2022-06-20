@@ -9,6 +9,7 @@ import {EmailService} from "../email/email.service";
 import {getYesterday} from "../utils/date";
 import {WorkSheet} from "node-xlsx";
 import * as Sentry from '@sentry/node';
+import any = jasmine.any;
 
 require('dotenv').config();
 
@@ -148,7 +149,7 @@ export class TwitterService {
                 continue
             }
             try {
-                let tweets = []
+                let tweets: components["schemas"]["Tweet"][] = []
                 let hasNextPage = true
                 let nextToken = null
                 while (hasNextPage) {
@@ -524,7 +525,7 @@ export class TwitterService {
             let userProfileClicks = 0
             let videoViews = 0
             try {
-                let tweets = []
+                let tweets: components["schemas"]["Tweet"][] = []
                 let hasNextPage = true
                 let nextToken = null
                 while (hasNextPage) {
