@@ -101,7 +101,6 @@ export class AppService {
     }
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
   async getCurrentPlatformStats() {
     let twitterAccountSheet = await this.twitter.exportAccountData()
     let tweetsSheets = await this.twitter.exportTweetData();
