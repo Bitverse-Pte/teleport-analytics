@@ -492,4 +492,64 @@ export class DiscordService {
             options: {},
         }
     }
+
+    async exportGuildCurrentStat() {
+        let head: unknown[] = [
+            'Date',
+            'Online Member',
+            'Total Member',
+        ];
+        const weekBefore = getXDaysAgoAtMidnight(7);
+        const entries = await this.prisma.discordGuildStat.findMany({
+            where: {
+                createdAt: {
+                    gte: weekBefore
+                },
+            },
+            include: {
+                guild: true
+            }
+        })
+        const datas = entries.map((entry) => {
+            return [
+                entry.createdAt.toString(),
+                entry.onlineMemberCount,
+                entry.totalMemberCount,
+            ]
+        });
+        return {
+            name: "Discord Server Current Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
+
+    async exportChannelsCurrentStat() {
+        let head: unknown[] = [
+            'Channel Name',
+            'Channel Type',
+            'Date',
+            'Online Member',
+            'Total Member',
+        ];
+        const entries = await this.prisma.discordGuildChannelStat.findMany({
+            include: {
+                channel: true
+            }
+        });
+        const datas = entries.map((entry) => {
+            return [
+                entry.channel.name,
+                entry.channel.type,
+                entry.createdAt.toString(),
+                entry.onlineMemberCount,
+                entry.totalMemberCount,
+            ]
+        });
+        return {
+            name: "Discord Channel Current Stats",
+            data: [head, ...datas],
+            options: {},
+        }
+      }
 }

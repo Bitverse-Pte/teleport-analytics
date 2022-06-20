@@ -414,4 +414,27 @@ export class TelegramGroupService {
         options: {},
     }
   }
+
+  async exportCurrentStat() {
+    let head: unknown[] = [
+        'Group ID',
+        'Date',
+        'Total Member'
+    ];
+    const entries = await this.prisma.telegramGroupStats.findMany()
+
+    const datas = entries.map((entry) => {
+        return [
+            entry.groupId.toString(),
+            entry.date.toString(),
+            entry.totalMemberCount
+        ]
+    });
+
+    return {
+        name: "Telegram Group Stats",
+        data: [head, ...datas],
+        options: {},
+    }
+  }
 }
