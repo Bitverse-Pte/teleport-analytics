@@ -559,7 +559,7 @@ export class TwitterService {
                     likes+=tweet.public_metrics.like_count
                     replies+=tweet.public_metrics.reply_count
                     // urlLinkClicks+=tweet.urlLinkClicks
-                    userProfileClicks+=tweet.non_public_metrics.user_profile_clicks
+                    userProfileClicks+=(tweet.non_public_metrics as any).user_profile_clicks
                     // videoViews+=tweet.videoViews
                 }
             } catch (error) {
