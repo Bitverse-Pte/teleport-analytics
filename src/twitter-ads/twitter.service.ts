@@ -9,6 +9,7 @@ import {EmailService} from "../email/email.service";
 import {getYesterday} from "../utils/date";
 import {WorkSheet} from "node-xlsx";
 import * as Sentry from '@sentry/node';
+import any = jasmine.any;
 
 require('dotenv').config();
 
@@ -148,7 +149,7 @@ export class TwitterService {
                 continue
             }
             try {
-                let tweets = []
+                let tweets: components["schemas"]["Tweet"][] = []
                 let hasNextPage = true
                 let nextToken = null
                 while (hasNextPage) {
@@ -524,7 +525,7 @@ export class TwitterService {
             let userProfileClicks = 0
             let videoViews = 0
             try {
-                let tweets = []
+                let tweets: components["schemas"]["Tweet"][] = []
                 let hasNextPage = true
                 let nextToken = null
                 while (hasNextPage) {
@@ -552,11 +553,11 @@ export class TwitterService {
                 this.logger.debug(`get ${tweets.length} tweet info`)
                 for await (const tweet of tweets) {
                     tweetsCount+=1
-                    impressions+=tweet.non_public_metrics.impressions
-                    retweets+=tweet.public_metrics.retweets
-                    quoteTweets+=tweet.public_metrics.quoteTweets
-                    likes+=tweet.public_metrics.likes
-                    replies+=tweet.public_metrics.replies
+                    impressions+=tweet.non_public_metrics.impression_count
+                    retweets+=tweet.public_metrics.retweet_count
+                    quoteTweets+=tweet.public_metrics.quote_count
+                    likes+=tweet.public_metrics.like_count
+                    replies+=tweet.public_metrics.retweet_count
                     // urlLinkClicks+=tweet.urlLinkClicks
                     // userProfileClicks+=tweet.userProfileClicks
                     // videoViews+=tweet.videoViews
