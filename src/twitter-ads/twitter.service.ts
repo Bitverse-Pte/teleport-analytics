@@ -174,10 +174,15 @@ export class TwitterService {
                 }
 
                 this.logger.debug(`get ${tweets.length} tweet info`)
+                let insertItems = []
                 for await (const tweet of tweets) {
                     await this.insertOrUpdateTweetData(account.accountId, tweet)
                     await this.insertTweetRealTimeData(tweet)
                 }
+                this.prisma.tweetRealTimeStat.createMany({
+                    data: insertItems,
+                    skipDuplicates: true,
+                })
             } catch (error) {
                 Sentry.captureException(error);
                 this.logger.error(error.toString())
@@ -547,14 +552,14 @@ export class TwitterService {
                 this.logger.debug(`get ${tweets.length} tweet info`)
                 for await (const tweet of tweets) {
                     tweetsCount+=1
-                    impressions+=tweet.impressions
-                    retweets+=tweet.retweets
-                    quoteTweets+=tweet.quoteTweets
-                    likes+=tweet.likes
-                    replies+=tweet.replies
-                    urlLinkClicks+=tweet.urlLinkClicks
-                    userProfileClicks+=tweet.userProfileClicks
-                    videoViews+=tweet.videoViews
+                    impressions+=tweet.non_public_metrics.impressions
+                    retweets+=tweet.public_metrics.retweets
+                    quoteTweets+=tweet.public_metrics.quoteTweets
+                    likes+=tweet.public_metrics.likes
+                    replies+=tweet.public_metrics.replies
+                    // urlLinkClicks+=tweet.urlLinkClicks
+                    // userProfileClicks+=tweet.userProfileClicks
+                    // videoViews+=tweet.videoViews
                 }
             } catch (error) {
                 Sentry.captureException(error);
