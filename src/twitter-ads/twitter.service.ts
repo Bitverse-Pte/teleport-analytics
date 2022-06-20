@@ -25,7 +25,9 @@ export class TwitterService {
     ) {
         this._init()
     }
-    private async _init() {}
+    private async _init() {
+        await this.logTweetsDailyStat()
+    }
 
     /**
      * request account information every 5 minutes,
@@ -237,23 +239,36 @@ export class TwitterService {
                 account.expiresAt,
             ))
             try {
-                let resp = await clientWithAuth.tweets.usersIdTweets(account.accountId, {
-                    max_results: 100,
-                    "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
-                    exclude: ["replies", "retweets"],
-                    start_time: moment().tz('Asia/Shanghai').startOf('day').toISOString(),
-                })
-                if (!resp.data) {
-                    continue
+                const startTime = moment(new Date()).subtract(1, 'months').toISOString()
+                let hasNextPage = true
+                let nextToken = null
+                while (hasNextPage) {
+                    let resp = await clientWithAuth.tweets.usersIdTweets(account.accountId, {
+                        max_results: 100,
+                        "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
+                        exclude: ["replies", "retweets"],
+                        pagination_token: nextToken ? nextToken : "",
+                        start_time: startTime // moment().tz('Asia/Shanghai').startOf('day').toISOString(),
+                    })
+                    if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
+                        if (resp.meta.next_token) {
+                            nextToken = resp.meta.next_token
+                        }else {
+                            hasNextPage = false
+                        }
+                        tweetsCount += resp.data.length
+                        for (const one of resp.data) {
+                            impressions += one.non_public_metrics.impression_count
+                            retweets += one.public_metrics.retweet_count
+                            quoteTweets += one.public_metrics.quote_count
+                            likes += one.public_metrics.like_count
+                            replies += one.public_metrics.reply_count
+                        }
+                    }else {
+                        hasNextPage = false
+                    }
                 }
-                tweetsCount += resp.data.length
-                for (const one of resp.data) {
-                    impressions += one.non_public_metrics.impression_count
-                    retweets += one.public_metrics.retweet_count
-                    quoteTweets += one.public_metrics.quote_count
-                    likes += one.public_metrics.like_count
-                    replies += one.public_metrics.reply_count
-                }
+
                 await this.prisma.tweetsDailyStat.create({
                     data: {
                         tweetsCount: tweetsCount,
@@ -523,7 +538,6 @@ export class TwitterService {
             let replies = 0
             let urlLinkClicks = 0
             let userProfileClicks = 0
-            let videoViews = 0
             try {
                 let tweets: components["schemas"]["Tweet"][] = []
                 let hasNextPage = true
@@ -554,13 +568,12 @@ export class TwitterService {
                 for await (const tweet of tweets) {
                     tweetsCount+=1
                     impressions+=tweet.non_public_metrics.impression_count
+                    userProfileClicks+=tweet.non_public_metrics.user_profile_clicks
+                    urlLinkClicks+=tweet.non_public_metrics.url_link_clicks
                     retweets+=tweet.public_metrics.retweet_count
                     quoteTweets+=tweet.public_metrics.quote_count
                     likes+=tweet.public_metrics.like_count
                     replies+=tweet.public_metrics.reply_count
-                    // urlLinkClicks+=tweet.urlLinkClicks
-                    userProfileClicks+=tweet.non_public_metrics.user_profile_clicks
-                    // videoViews+=tweet.videoViews
                 }
             } catch (error) {
                 Sentry.captureException(error);
