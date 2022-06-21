@@ -351,6 +351,9 @@ export class DiscordService {
         
         /** count channel now */
         await this.countChannelsDailyAnalyticData();
+        
+        /** after what have done, setting the isExecuted to true */
+        this.isExecuted = true;
     }
 
     async countChannelsDailyAnalyticData() {
