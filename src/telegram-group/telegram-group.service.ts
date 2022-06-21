@@ -376,6 +376,7 @@ export class TelegramGroupService {
             data: groupStats
         });
         this.listeningChats.forEach(this._resetCounter.bind(this));
+        this.isExecuted = true;
     }
 
    async exportDailyData() {
