@@ -22,7 +22,7 @@ export class DiscordService {
             Intents.FLAGS.GUILDS,
             Intents.FLAGS.GUILD_MESSAGES,
             /** Privacy related permissions */
-            Intents.FLAGS.GUILD_MEMBERS, 
+            Intents.FLAGS.GUILD_MEMBERS,
             Intents.FLAGS.GUILD_PRESENCES,
             // maybe avaliable after aug 31 2022
             // Intents.FLAGS.MESSAGE_CONTENT
@@ -77,7 +77,7 @@ export class DiscordService {
         /**
          * Listening new member join to guild
          */
-        this.client.on('guildMemberAdd', this.handleNewMemberInGuild.bind(this)) 
+        this.client.on('guildMemberAdd', this.handleNewMemberInGuild.bind(this))
 
         this.client.on('channelCreate', this.handleNewChannelCreatedInGuild.bind(this));
 
@@ -116,7 +116,7 @@ export class DiscordService {
         const guildMemberInChannels = channel.members.map((m) => ({
             id: m.id,
         }));
-        
+
         await this.prisma.discordChannel.create({
             data: {
                 id: channel.id,
@@ -215,15 +215,21 @@ export class DiscordService {
                 }
             }
         });
-
-        for (const { id, members } of insertData) {
-            await this.prisma.discordChannel.update({
+        await this.prisma.$transaction(insertData.map(({ id, members }) => this.prisma.discordChannel.update({
                 where: { id },
                 data: {
                     members
                 },
             })
-        }
+        ));
+        // for (const { id, members } of insertData) {
+        //     await this.prisma.discordChannel.update({
+        //         where: { id },
+        //         data: {
+        //             members
+        //         },
+        //     })
+        // }
     }
 
     /** Analytic about guild / channel*/
@@ -261,7 +267,7 @@ export class DiscordService {
                 })
             })
             /** no online counter for this, since member status is universal, just use this */
-            this._storeCurrentCountOfChannels(counts.onlineMemberCount)
+            await this._storeCurrentCountOfChannels(counts.onlineMemberCount)
         } catch (error) {
             Sentry.captureException(error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
@@ -342,7 +348,7 @@ export class DiscordService {
                 lowestOnlineMemberCount: dailyGuildStats.lowestOnline.onlineMemberCount,
             }
         })
-        
+
         /** count channel now */
         await this.countChannelsDailyAnalyticData();
     }

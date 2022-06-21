@@ -6,10 +6,9 @@ import {OAuth2User} from "twitter-api-sdk/dist/OAuth2User";
 import {components} from "twitter-api-sdk/dist/gen/openapi-types";
 import * as moment from 'moment-timezone'
 import {EmailService} from "../email/email.service";
-import {getYesterday} from "../utils/date";
 import {WorkSheet} from "node-xlsx";
 import * as Sentry from '@sentry/node';
-import any = jasmine.any;
+import {getYesterday} from "../utils/date";
 
 require('dotenv').config();
 
@@ -25,9 +24,7 @@ export class TwitterService {
     ) {
         this._init()
     }
-    private async _init() {
-        await this.logTweetsDailyStat()
-    }
+    private async _init() {}
 
     /**
      * request account information every 5 minutes,
@@ -36,7 +33,7 @@ export class TwitterService {
      */
     @Cron(CronExpression.EVERY_5_MINUTES)
     private async syncAccountData() {
-        this.logger.debug('start sync account data')
+        this.logger.verbose('start sync account data')
         let accounts = await this.prisma.twitterAccount.findMany()
         let ids = accounts.map(one => one.accountId)
         if (ids.length === 0) {
@@ -82,7 +79,7 @@ export class TwitterService {
         timeZone: 'Asia/Shanghai'
     })
     private async logTwitterDailyStat() {
-        this.logger.debug('start log daily info')
+        this.logger.verbose('start log daily info')
         const accounts = await this.prisma.twitterAccount.findMany()
         const ids = [];
         for await (const account of accounts) {
@@ -134,10 +131,10 @@ export class TwitterService {
      * scanTweetList sync every account for the latest 1 month tweets information
      * @private
      */
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_10_MINUTES)
     async scanTweetList() {
         const startTime = moment(new Date()).subtract(1, 'months').toISOString()
-        this.logger.debug(`start scan new tweet since ${startTime}`)
+        this.logger.verbose(`start scan new tweet since ${startTime}`)
         const accounts = await this.prisma.twitterAccount.findMany()
         for (const account of accounts) {
             let authClient = await this.getAccountAuthClient(
@@ -145,51 +142,66 @@ export class TwitterService {
                 account.accessToken,
                 account.refreshToken,
                 account.expiresAt,
-            )
-            let client = new Client(authClient)
-            if (!client) {
-                continue
-            }
-            try {
-                let tweets: components["schemas"]["Tweet"][] = []
-                let hasNextPage = true
-                let nextToken = null
-                while (hasNextPage) {
-                    let resp = await client.tweets.usersIdTweets(account.accountId, {
-                        max_results: 100,
-                        exclude: ["replies", "retweets"],
-                        "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
-                        pagination_token: nextToken ? nextToken : "",
-                        start_time: startTime,
-                    })
-                    if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
-                        if (resp.data) {
-                            tweets.push.apply(tweets, resp.data)
-                        }
-                        if (resp.meta.next_token) {
-                            nextToken = resp.meta.next_token
-                        }else {
+            ).then(async (authClient) => {
+                let client = new Client(authClient)
+                try {
+                    let tweets: components["schemas"]["Tweet"][] = []
+                    let hasNextPage = true
+                    let nextToken = null
+                    while (hasNextPage) {
+                        let resp = await client.tweets.usersIdTweets(account.accountId, {
+                            max_results: 100,
+                            exclude: ["replies", "retweets"],
+                            "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
+                            pagination_token: nextToken ? nextToken : "",
+                            start_time: startTime,
+                        })
+                        if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
+                            if (resp.data) {
+                                tweets.push.apply(tweets, resp.data)
+                            }
+                            if (resp.meta.next_token) {
+                                nextToken = resp.meta.next_token
+                            } else {
+                                hasNextPage = false
+                            }
+                        } else {
                             hasNextPage = false
                         }
-                    }else {
-                        hasNextPage = false
                     }
-                }
 
-                this.logger.debug(`get ${tweets.length} tweet info`)
-                let insertItems = []
-                for await (const tweet of tweets) {
-                    await this.insertOrUpdateTweetData(account.accountId, tweet)
-                    await this.insertTweetRealTimeData(tweet)
+                    this.logger.debug(`get ${tweets.length} tweet info`)
+                    for await (const tweet of tweets) {
+                        await this.insertOrUpdateTweetData(account.accountId, tweet)
+                    }
+                    // Insert realtime tweet records
+                    const multiInsert = tweets.map((tweet, idx) => {
+                        return {
+                            tweetId: tweet.id,
+                            impressions: tweet.non_public_metrics.impression_count,
+                            urlLinkClicks: tweet.non_public_metrics.url_link_clicks,
+                            userProfileClicks: tweet.non_public_metrics.user_profile_clicks,
+                            retweets: tweet.public_metrics.retweet_count,
+                            quoteTweets: tweet.public_metrics.quote_count,
+                            likes: tweet.public_metrics.like_count,
+                            replies: tweet.public_metrics.reply_count,
+                            videoViews: 0,
+                        };
+                    })
+                    await this.prisma.tweetRealTimeStat.createMany({
+                        data: multiInsert,
+                        skipDuplicates: true,
+                    }).then().catch((error) => {
+                        Sentry.captureException(error)
+                        this.logger.error(error)
+                    })
+                } catch (error) {
+                    Sentry.captureException(error);
+                    this.logger.error(error.toString())
                 }
-                this.prisma.tweetRealTimeStat.createMany({
-                    data: insertItems,
-                    skipDuplicates: true,
-                })
-            } catch (error) {
-                Sentry.captureException(error);
-                this.logger.error(error.toString())
-            }
+            }).catch((error) => {
+                this.logger.error(error)
+            })
         }
         this.logger.verbose('scanTweetList::finished');
     }
@@ -337,8 +349,8 @@ export class TwitterService {
                 },
                 data: {
                     impressions: tweet.non_public_metrics.impression_count,
-                    urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
-                    userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
+                    urlLinkClicks: tweet.non_public_metrics.url_link_clicks,
+                    userProfileClicks: tweet.non_public_metrics.user_profile_clicks,
                     retweets: tweet.public_metrics.retweet_count,
                     quoteTweets: tweet.public_metrics.quote_count,
                     likes: tweet.public_metrics.like_count,
@@ -374,26 +386,6 @@ export class TwitterService {
         }
     }
 
-    async insertTweetRealTimeData(tweet: components["schemas"]["Tweet"]) {
-        await this.prisma.tweetRealTimeStat.create({
-            data: {
-                tweetId: tweet.id,
-                impressions: tweet.non_public_metrics.impression_count,
-                urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
-                userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
-                retweets: tweet.public_metrics.retweet_count,
-                quoteTweets: tweet.public_metrics.quote_count,
-                likes: tweet.public_metrics.like_count,
-                replies: tweet.public_metrics.reply_count,
-                videoViews: 0,
-            }
-        }).then((resp) => {
-        }).catch((error) => {
-            Sentry.captureException(error);
-            this.logger.error(error)
-        })
-    }
-
     private async getAccountAuthClient(accountId: string, accessToken: string, refreshToken: string, expiredAt: Date): Promise<OAuth2User> {
         return new Promise(async (resolve, reject) => {
             let authClient = new auth.OAuth2User({
@@ -408,7 +400,7 @@ export class TwitterService {
                 expires_at: expiredAt,
             }
             if (expiredAt <= new Date(Date.now())) {
-                this.logger.debug('access token expired, refresh new one')
+                this.logger.verbose('access token expired, refresh new one')
                 await authClient.refreshAccessToken().then(async (resp) => {
                     await this.prisma.twitterAccount.update({
                         where: {
@@ -420,9 +412,10 @@ export class TwitterService {
                             expiresAt: resp.token.expires_at,
                         },
                     }).then((resp) => {
-                        this.logger.debug('get new token')
+                        this.logger.verbose('get new token')
                         resolve(authClient)
                     }).catch((error) => {
+                        console.error("!!!!!=====>", error)
                         reject(error)
                     })
                 }).catch((error) => {
@@ -437,56 +430,29 @@ export class TwitterService {
         let data: unknown[][] = [
             ["Account", "Date", "Tweets", "New Tweets", "Followers", "New Followers"]
         ]
-        let accounts = await this.prisma.twitterAccount.findMany()
+
+        const records = await this.prisma.twitterAccountDailyStat.findMany({
+            where: {
+                date: {
+                    gte: getYesterday()
+                }
+            }
+        })
+        const accounts = await this.prisma.twitterAccount.findMany()
         let accountDic: {[id: string]:string} = {}
         for (const account of accounts) {
             accountDic[account.accountId] = account.name
         }
-        let ids = accounts.map(one => one.accountId)
-        if (ids.length === 0) {
-            return
+        for (const record of records) {
+            data.push([
+                accountDic[record.twitterAccountId],
+                record.date,
+                record.tweetCount,
+                record.newTweetCount,
+                record.followersCount,
+                record.newFollowersCount,
+            ])
         }
-        await publicClient.users.findUsersById({
-            "ids": ids,
-            "user.fields": ["public_metrics"]
-        }).then(async (resp) => {
-            for (const item of resp.data) {
-                this.logger.debug(`get twitter account info ${item.name}`)
-                data.push([
-                    accountDic[item.id],
-                    moment().toString(),
-                    item.public_metrics.tweet_count,
-                    "0",
-                    item.public_metrics.followers_count,
-                    "0",
-                ])
-            }
-        }).catch((error) => {
-            this.logger.error('syncAccountData::error', error);
-            Sentry.captureException(error);
-        })
-        // const records = await this.prisma.twitterAccountDailyStat.findMany({
-        //     where: {
-        //         date: {
-        //             gte: getYesterday()
-        //         }
-        //     }
-        // })
-        // const accounts = await this.prisma.twitterAccount.findMany()
-        // let accountDic: {[id: string]:string} = {}
-        // for (const account of accounts) {
-        //     accountDic[account.accountId] = account.name
-        // }
-        // for (const record of records) {
-        //     data.push([
-        //         accountDic[record.twitterAccountId],
-        //         record.date,
-        //         record.tweetCount,
-        //         record.newTweetCount,
-        //         record.followersCount,
-        //         record.newFollowersCount,
-        //     ])
-        // }
 
         return {
             name: "Twitter Account",
@@ -497,99 +463,55 @@ export class TwitterService {
 
     public async exportTweetData(): Promise<WorkSheet> {
         let data: unknown[][] = [
-            ["Date", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks"],
+            ["Date", "Tweet ID", "Content", "Impressions", "Retweets", "Quote Tweets", "Likes", "Replies", "User Profile Clicks", "Url Link Clicks"],
         ]
-        // const records = await this.prisma.tweetsDailyStat.findMany({
-        //     where: {
-        //         date: {
-        //             gte: getYesterday()
-        //         }
-        //     }
-        // })
-        // for (const record of records) {
-        //     data.push([
-        //         record.date,
-        //         record.impressions,
-        //         record.retweets,
-        //         record.quoteTweets,
-        //         record.likes,
-        //         record.replies,
-        //         record.userProfileClicks,
-        //     ])
-        // }
-        const startTime = moment(new Date()).subtract(1, 'months').toISOString()
-        const accounts = await this.prisma.twitterAccount.findMany()
-        for (const account of accounts) {
-            let authClient = await this.getAccountAuthClient(
-                account.accountId,
-                account.accessToken,
-                account.refreshToken,
-                account.expiresAt,
-            )
-            let client = new Client(authClient)
-            if (!client) {
-                continue
+        const records = await this.prisma.tweet.findMany({
+            orderBy: {
+                createdAt: "desc",
             }
-            let tweetsCount = 0
-            let impressions = 0
-            let retweets = 0
-            let quoteTweets = 0
-            let likes = 0
-            let replies = 0
-            let urlLinkClicks = 0
-            let userProfileClicks = 0
-            try {
-                let tweets: components["schemas"]["Tweet"][] = []
-                let hasNextPage = true
-                let nextToken = null
-                while (hasNextPage) {
-                    let resp = await client.tweets.usersIdTweets(account.accountId, {
-                        max_results: 100,
-                        exclude: ["replies", "retweets"],
-                        "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
-                        pagination_token: nextToken ? nextToken : "",
-                        start_time: startTime,
-                    })
-                    if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
-                        if (resp.data) {
-                            tweets.push.apply(tweets, resp.data)
-                        }
-                        if (resp.meta.next_token) {
-                            nextToken = resp.meta.next_token
-                        }else {
-                            hasNextPage = false
-                        }
-                    }else {
-                        hasNextPage = false
-                    }
-                }
-
-                this.logger.debug(`get ${tweets.length} tweet info`)
-                for await (const tweet of tweets) {
-                    tweetsCount+=1
-                    impressions+=tweet.non_public_metrics.impression_count
-                    userProfileClicks+=tweet.non_public_metrics.user_profile_clicks
-                    urlLinkClicks+=tweet.non_public_metrics.url_link_clicks
-                    retweets+=tweet.public_metrics.retweet_count
-                    quoteTweets+=tweet.public_metrics.quote_count
-                    likes+=tweet.public_metrics.like_count
-                    replies+=tweet.public_metrics.reply_count
-                }
-            } catch (error) {
-                Sentry.captureException(error);
-                this.logger.error(error.toString())
-            }
-
+        })
+        let tweetsCount = records.length
+        let impressions = 0
+        let retweets = 0
+        let quoteTweets = 0
+        let likes = 0
+        let replies = 0
+        let urlLinkClicks = 0
+        let userProfileClicks = 0
+        let videoViews = 0
+        for (const record of records) {
+            impressions+=record.impressions
+            retweets+=record.retweets
+            quoteTweets+=record.quoteTweets
+            likes+=record.likes
+            replies+=record.replies
+            urlLinkClicks+=record.urlLinkClicks
+            userProfileClicks+=record.userProfileClicks
             data.push([
-                moment().toString(),
-                impressions,
-                retweets,
-                quoteTweets,
-                likes,
-                replies,
-                userProfileClicks,
+                record.createdAt,
+                record.tweetId,
+                record.text,
+                record.impressions,
+                record.retweets,
+                record.quoteTweets,
+                record.likes,
+                record.replies,
+                record.userProfileClicks,
+                record.urlLinkClicks,
             ])
         }
+        data.push([
+            "In Total",
+            ` ${tweetsCount} tweets`,
+            "",
+            impressions,
+            retweets,
+            quoteTweets,
+            likes,
+            replies,
+            userProfileClicks,
+            urlLinkClicks,
+        ])
 
         return {
             name: "Tweets",
