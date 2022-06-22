@@ -178,8 +178,8 @@ export class TwitterService {
                         return {
                             tweetId: tweet.id,
                             impressions: tweet.non_public_metrics.impression_count,
-                            urlLinkClicks: tweet.non_public_metrics.url_link_clicks,
-                            userProfileClicks: tweet.non_public_metrics.user_profile_clicks,
+                            urlLinkClicks: 0,// tweet.non_public_metrics.url_link_clicks,
+                            userProfileClicks: 0,// tweet.non_public_metrics.user_profile_clicks,
                             retweets: tweet.public_metrics.retweet_count,
                             quoteTweets: tweet.public_metrics.quote_count,
                             likes: tweet.public_metrics.like_count,
@@ -350,8 +350,8 @@ export class TwitterService {
                 },
                 data: {
                     impressions: tweet.non_public_metrics.impression_count,
-                    urlLinkClicks: tweet.non_public_metrics.url_link_clicks,
-                    userProfileClicks: tweet.non_public_metrics.user_profile_clicks,
+                    urlLinkClicks: 0, // tweet.non_public_metrics.url_link_clicks,
+                    userProfileClicks: 0, // tweet.non_public_metrics.user_profile_clicks,
                     retweets: tweet.public_metrics.retweet_count,
                     quoteTweets: tweet.public_metrics.quote_count,
                     likes: tweet.public_metrics.like_count,
