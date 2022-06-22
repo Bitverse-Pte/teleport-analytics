@@ -20,7 +20,6 @@ export class TwitterService {
 
     constructor(
         private prisma: PrismaService,
-        private emailService: EmailService
     ) {
         this._init()
     }
@@ -49,7 +48,7 @@ export class TwitterService {
                 await this.insertTwitterAccountRealTimeData(item)
             }
         }).catch((error) => {
-            this.logger.error('syncAccountData::error', error);
+            console.error(error.msg)
             Sentry.captureException(error);
         })
         this.logger.verbose('syncAccountData::finished');
@@ -131,13 +130,13 @@ export class TwitterService {
      * scanTweetList sync every account for the latest 1 month tweets information
      * @private
      */
-    @Cron(CronExpression.EVERY_10_MINUTES)
+    @Cron(CronExpression.EVERY_30_MINUTES)
     async scanTweetList() {
         const startTime = moment(new Date()).subtract(1, 'months').toISOString()
         this.logger.verbose(`start scan new tweet since ${startTime}`)
         const accounts = await this.prisma.twitterAccount.findMany()
         for (const account of accounts) {
-            let authClient = await this.getAccountAuthClient(
+            await this.getAccountAuthClient(
                 account.accountId,
                 account.accessToken,
                 account.refreshToken,
@@ -258,11 +257,13 @@ export class TwitterService {
                     let resp = await clientWithAuth.tweets.usersIdTweets(account.accountId, {
                         max_results: 100,
                         "tweet.fields": ["public_metrics", "non_public_metrics", "created_at"],
+                        "media.fields": ["public_metrics"],
                         exclude: ["replies", "retweets"],
                         pagination_token: nextToken ? nextToken : "",
-                        start_time: startTime // moment().tz('Asia/Shanghai').startOf('day').toISOString(),
+                        start_time: startTime,
                     })
                     if (resp && resp.meta && resp.meta.result_count && resp.meta.result_count > 0) {
+                        console.log(resp)
                         if (resp.meta.next_token) {
                             nextToken = resp.meta.next_token
                         }else {
@@ -415,10 +416,11 @@ export class TwitterService {
                         this.logger.verbose('get new token')
                         resolve(authClient)
                     }).catch((error) => {
-                        console.error("!!!!!=====>", error)
+                        console.error("=====>", error)
                         reject(error)
                     })
                 }).catch((error) => {
+                    console.error("======>", error)
                     reject(error)
                 })
             }
