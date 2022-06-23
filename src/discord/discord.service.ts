@@ -490,17 +490,16 @@ export class DiscordService {
         }
     }
 
-    async exportGuildCurrentStat() {
+    async exportGuildCurrentStat(laterThan = getXDaysAgoAtMidnight(7)) {
         let head: unknown[] = [
             'Date',
             'Online Member',
             'Total Member',
         ];
-        const weekBefore = getXDaysAgoAtMidnight(7);
         const entries = await this.prisma.discordGuildStat.findMany({
             where: {
                 createdAt: {
-                    gte: weekBefore
+                    gte: laterThan
                 },
             },
             include: {
@@ -515,7 +514,7 @@ export class DiscordService {
             ]
         });
         return {
-            name: "Discord Server Current Stats",
+            name: "Discord Server Hourly Stats",
             data: [head, ...datas],
             options: {},
         }
@@ -546,5 +545,9 @@ export class DiscordService {
             data: [head, ...datas],
             options: {},
         }
-      }
+    }
+
+    exportGuildYesterdayHourStats() {
+        return this.exportGuildCurrentStat(getYesterday());
+    }
 }
