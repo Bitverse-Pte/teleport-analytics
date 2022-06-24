@@ -43,17 +43,21 @@ export class AppService {
     timeZone: 'Asia/Shanghai'
   })
   async sendReport() {
-     const { twitterAccountSheet,
-     tweetsSheets,
-     telegramSheets,
-     discordGuildSheets,
-     discordGuildChannelsSheets } = await this.getReportData();
+    const {
+        twitterAccountSheet,
+        tweetsSheets,
+        telegramSheets,
+        discordGuildSheets,
+        discordGuildChannelsSheets,
+        discordYesterdayHourStatSheets,
+    } = await this.getReportData();
 
     let buffer = xlsx.build([
       twitterAccountSheet,
       tweetsSheets,
       telegramSheets,
       discordGuildSheets,
+      discordYesterdayHourStatSheets,
       discordGuildChannelsSheets
     ])
     let filename = `TeleportChain-Analytics-${moment().format('YYYYMMDD')}.xlsx`
@@ -90,6 +94,7 @@ export class AppService {
     let telegramSheets = await this.telegramService.exportDailyData();
 
     let discordGuildSheets = await this.discordService.exportGuildDailyData();
+    let discordYesterdayHourStatSheets = await this.discordService.exportGuildYesterdayHourStats()
     let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
 
     return {
@@ -97,7 +102,8 @@ export class AppService {
       tweetsSheets,
       telegramSheets,
       discordGuildSheets,
-      discordGuildChannelsSheets
+      discordGuildChannelsSheets,
+      discordYesterdayHourStatSheets
     }
   }
 

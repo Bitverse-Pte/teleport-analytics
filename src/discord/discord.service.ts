@@ -250,15 +250,13 @@ export class DiscordService {
         return { totalMemberCount, onlineMemberCount }
     }
 
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_HOUR)
     async storeCurrentCountOfGuilds() {
         try {
             this.logger.debug('Persist Listening Guilds Stats into Database.');
             const guildInfo = await this.findGuildInDatabase();
 
             const counts = await this.getCurrentCountOfGuild(guildInfo.id);
-            console.debug('storeCurrentCountOfGuilds::counts', counts);
-
             await this.prisma.discordGuildStat.create({
                 data: ({
                     discordGuildId: guildInfo.id,
@@ -266,8 +264,7 @@ export class DiscordService {
                     onlineMemberCount: counts.onlineMemberCount
                 })
             })
-            /** no online counter for this, since member status is universal, just use this */
-            await this._storeCurrentCountOfChannels(counts.onlineMemberCount)
+            await this._storeCurrentCountOfChannels();
         } catch (error) {
             Sentry.captureException(error);
             this.logger.error('storeCurrentCountOfGuilds::error:', error);
@@ -275,7 +272,7 @@ export class DiscordService {
         this.logger.verbose('storeCurrentCountOfGuilds::finished');
     }
 
-    private async _storeCurrentCountOfChannels(onlineMemberCount: number) {
+    private async _storeCurrentCountOfChannels() {
         const channelsInfo = await this.prisma.discordChannel.findMany({
             include: {
                 members: true
@@ -286,7 +283,6 @@ export class DiscordService {
             channelsInfo.map(channel => this.prisma.discordGuildChannelStat.create({
                 data: {
                     totalMemberCount: channel.members.length,
-                    onlineMemberCount,
                     channel: { connect: {
                         id: channel.id
                     } }
@@ -402,8 +398,6 @@ export class DiscordService {
                 return {
                     discordChannelId: id,
                     date: getYesterday(),
-                    startOnlineMemberCount: vals.dayStart.onlineMemberCount,
-                    endOnlineMemberCount: vals.dayEnd.onlineMemberCount,
                     startTotalMemberCount: vals.dayStart.totalMemberCount,
                     endTotalMemberCount: vals.dayEnd.totalMemberCount,
                     lowestTotalMemberCount: vals.lowestMember.totalMemberCount,
@@ -455,8 +449,6 @@ export class DiscordService {
             'Channel Name',
             'Channel Type',
             'Date',
-            'Online Member(Start)',
-            'Online Member(End)',
             'Total Member(Start)',
             'Total Member(End)',
             'Total Member(Lowest)',
@@ -476,8 +468,6 @@ export class DiscordService {
         const datas = entries.map(({
             channel,
             date,
-            startOnlineMemberCount,
-            endOnlineMemberCount,
             startTotalMemberCount,
             endTotalMemberCount,
             lowestTotalMemberCount,
@@ -487,8 +477,6 @@ export class DiscordService {
                 channel.name,
                 channel.type,
                 date.toDateString(),
-                startOnlineMemberCount,
-                endOnlineMemberCount,
                 startTotalMemberCount,
                 endTotalMemberCount,
                 lowestTotalMemberCount,
@@ -502,17 +490,16 @@ export class DiscordService {
         }
     }
 
-    async exportGuildCurrentStat() {
+    async exportGuildCurrentStat(laterThan = getXDaysAgoAtMidnight(7)) {
         let head: unknown[] = [
             'Date',
             'Online Member',
             'Total Member',
         ];
-        const weekBefore = getXDaysAgoAtMidnight(7);
         const entries = await this.prisma.discordGuildStat.findMany({
             where: {
                 createdAt: {
-                    gte: weekBefore
+                    gte: laterThan
                 },
             },
             include: {
@@ -527,7 +514,7 @@ export class DiscordService {
             ]
         });
         return {
-            name: "Discord Server Current Stats",
+            name: "Discord Server Hourly Stats",
             data: [head, ...datas],
             options: {},
         }
@@ -538,7 +525,6 @@ export class DiscordService {
             'Channel Name',
             'Channel Type',
             'Date',
-            'Online Member',
             'Total Member',
         ];
         const entries = await this.prisma.discordGuildChannelStat.findMany({
@@ -551,7 +537,6 @@ export class DiscordService {
                 entry.channel.name,
                 entry.channel.type,
                 entry.createdAt.toString(),
-                entry.onlineMemberCount,
                 entry.totalMemberCount,
             ]
         });
@@ -560,5 +545,9 @@ export class DiscordService {
             data: [head, ...datas],
             options: {},
         }
-      }
+    }
+
+    exportGuildYesterdayHourStats() {
+        return this.exportGuildCurrentStat(getYesterday());
+    }
 }

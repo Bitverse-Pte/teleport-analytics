@@ -52,7 +52,6 @@ model DiscordGuildChannelStat {
   createdAt DateTime @default(now())
 
   totalMemberCount  Int @default(0)
-  onlineMemberCount Int @default(0)
 }
 
 enum DiscordChannelType {
@@ -112,10 +111,7 @@ model DiscordGuildChannelDailyStat {
   date    DateTime       @default(now())
 
   startTotalMemberCount  Int @default(0)
-  startOnlineMemberCount Int @default(0)
-
   endTotalMemberCount  Int @default(0)
-  endOnlineMemberCount Int @default(0)
 
   highestTotalMemberCount Int    @default(0)
   lowestTotalMemberCount  Int    @default(0)
