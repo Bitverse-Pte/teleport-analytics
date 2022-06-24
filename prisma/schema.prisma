@@ -130,7 +130,6 @@ model TelegramGroup {
   title       String? // Optional. Title, for supergroups, channels and group chats
   username    String? // Optional. Username, for private chats, supergroups and channels if available
   photo       String? // Optional. Chat photo. Returned only in getChat.
-  bio         String? // Optional. Bio of the other party in a private chat. Returned only in getChat.
   invite_link String? //Optional. Primary invite link, for groups, supergroups and channel chats. Returned only in getChat.
 }
 
