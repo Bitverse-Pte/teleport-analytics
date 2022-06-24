@@ -453,19 +453,19 @@ export class TelegramGroupService {
         return this.bot.telegram.getChat(chatId.toNumber())
     }));
 
-    const updateData = telegramChatProfiles.map((profile) => {
+    const updateData = telegramChatProfiles.map((profile, idx) => {
         if (profile.type === 'private') {
-            return { id: profile.id, type: profile.type };
+            return { id: chatsInfo[idx].id, type: profile.type };
         }
         return {
-            id: profile.id,
+            id: chatsInfo[idx].id,
             slow_mode_delay: (profile as Chat.SupergroupGetChat).slow_mode_delay || null,
             message_auto_delete_time: profile.message_auto_delete_time  || null,
             type: profile.type,
             title: profile.title,
             username: (profile as Chat.SupergroupGetChat).username || null,
             photo: profile.photo.small_file_id,
-            invite_link: profile.invite_link,
+            invite_link: profile.invite_link || null,
         }
     });
 
