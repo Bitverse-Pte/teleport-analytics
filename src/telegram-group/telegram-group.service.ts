@@ -5,7 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/email/email.service';
 import { getYesterday } from 'src/utils/date';
-import type { Message } from 'telegraf/typings/core/types/typegram';
+import type { Chat, Message } from 'telegraf/typings/core/types/typegram';
 import { TelegramGroupStats } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime';
 import * as Sentry from '@sentry/node';
@@ -437,5 +437,42 @@ export class TelegramGroupService {
         data: [head, ...datas],
         options: {},
     }
+  }
+
+  @Cron(`17 17 * * *`, {
+        timeZone: 'Asia/Shanghai'
+  })
+  async updateTelegramChatsProfile() {
+    const chatsInfo = await this.prisma.telegramGroup.findMany();
+
+    const telegramChatProfiles = await Promise.all(chatsInfo.map(({ chatId }) => {
+        return this.bot.telegram.getChat(chatId.toNumber())
+    }));
+
+    const updateData = telegramChatProfiles.map((profile) => {
+        if (profile.type === 'private') {
+            return { id: profile.id, type: profile.type };
+        }
+        return {
+            id: profile.id,
+            slow_mode_delay: (profile as Chat.SupergroupGetChat).slow_mode_delay || null,
+            message_auto_delete_time: profile.message_auto_delete_time  || null,
+            type: profile.type,
+            title: profile.title,
+            username: (profile as Chat.SupergroupGetChat).username || null,
+            photo: profile.photo.small_file_id,
+            invite_link: profile.invite_link,
+        }
+    });
+
+    await this.prisma.$transaction(
+        updateData.map(({ id, ...data }) => 
+            this.prisma.telegramGroup.update({
+                data,
+                where: { id }
+            })
+        )
+    );
+    this.logger.debug('updateTelegramChatsProfile::finished');
   }
 }
