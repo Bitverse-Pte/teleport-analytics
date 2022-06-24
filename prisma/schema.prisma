@@ -51,7 +51,7 @@ model DiscordGuildChannelStat {
 
   createdAt DateTime @default(now())
 
-  totalMemberCount  Int @default(0)
+  totalMemberCount Int @default(0)
 }
 
 enum DiscordChannelType {
@@ -110,8 +110,8 @@ model DiscordGuildChannelDailyStat {
   channel DiscordChannel @relation(fields: [discordChannelId], references: [id])
   date    DateTime       @default(now())
 
-  startTotalMemberCount  Int @default(0)
-  endTotalMemberCount  Int @default(0)
+  startTotalMemberCount Int @default(0)
+  endTotalMemberCount   Int @default(0)
 
   highestTotalMemberCount Int    @default(0)
   lowestTotalMemberCount  Int    @default(0)
@@ -121,6 +121,16 @@ model DiscordGuildChannelDailyStat {
 model TelegramGroup {
   id     Int     @id @default(autoincrement())
   chatId Decimal @db.Decimal(65, 0)
+
+  // these data below are for display only, CHANGE them in Telegram side
+  slow_mode_delay          Int? //	Optional. For supergroups, the minimum allowed delay between consecutive messages sent by each unpriviledged user; in seconds. Returned only in getChat.
+  message_auto_delete_time Int? // Optional. The time after which all messages sent to the chat will be automatically deleted; in seconds. Returned only in getChat.
+
+  type        String? //	Type of chat, can be either “private”, “group”, “supergroup” or “channel”
+  title       String? // Optional. Title, for supergroups, channels and group chats
+  username    String? // Optional. Username, for private chats, supergroups and channels if available
+  photo       String? // Optional. Chat photo. Returned only in getChat.
+  invite_link String? //Optional. Primary invite link, for groups, supergroups and channel chats. Returned only in getChat.
 }
 
 model TelegramChatMember {
