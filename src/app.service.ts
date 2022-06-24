@@ -13,7 +13,6 @@ import * as Sentry from '@sentry/node';
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
-  private readonly appLaunchedAt = Date.now();
 
   constructor(
       private prisma: PrismaService,
@@ -22,16 +21,6 @@ export class AppService {
       private discordService: DiscordService,
       private telegramService: TelegramGroupService
   ) {
-  }
-
-  getUptime() {
-    const msThatLasted = Date.now() - this.appLaunchedAt;
-    const uptime = {
-      appLaunchedAt: moment(this.appLaunchedAt).toLocaleString(),
-      ms: msThatLasted,
-      timeFromNow: moment(this.appLaunchedAt).fromNow()
-    }
-    return uptime;
   }
 
   getHello(): string {

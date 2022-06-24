@@ -1,9 +1,13 @@
 import { Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import * as moment from 'moment'
+import { UptimeService } from './uptime/uptime.service';
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly uptimeService: UptimeService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -12,7 +16,7 @@ export class AppController {
 
   @Get('/metrics')
   iAmStillAlive() {
-    const uptime = this.appService.getUptime();
+    const uptime = this.uptimeService.getUptime();
     return { message: 'Still alive', uptime };
   }
 

@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { DiscordModule } from './discord/discord.module';
 import { TwitterController } from './twitter/twitter.controller';
 import { SentryModule } from './sentry/sentry.module';
+import { UptimeModule } from './uptime/uptime.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SentryModule } from './sentry/sentry.module';
     TwitterModule,
     PrismaModule,
     DiscordModule,
+    UptimeModule,
   ],
   controllers: [AppController, TwitterController],
   providers: [AppService],
