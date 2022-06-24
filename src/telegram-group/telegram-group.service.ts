@@ -9,6 +9,7 @@ import type { Chat, Message } from 'telegraf/typings/core/types/typegram';
 import { TelegramGroupStats } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime';
 import * as Sentry from '@sentry/node';
+import { UptimeService } from 'src/uptime/uptime.service';
 
 require('dotenv').config();
 
@@ -37,6 +38,7 @@ export class TelegramGroupService {
 
     constructor(
         private prisma: PrismaService,
+        private uptimeService: UptimeService
     ) {
         const agent = process.env.PROXY_SETTINGS ? new SocksProxyAgent(process.env.PROXY_SETTINGS) : undefined;
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
@@ -160,7 +162,12 @@ export class TelegramGroupService {
                         id: target.id
                     }
                 });
-        })
+        });
+
+        /** Uptime related */
+        this.bot.command('uptime', async (ctx) => {
+            await ctx.reply(JSON.stringify(this.uptimeService.getUptime(), null, 2));
+        });
     }
 
     private _listenOnGeneralMessage(type: ListeningMessageTypes) {
