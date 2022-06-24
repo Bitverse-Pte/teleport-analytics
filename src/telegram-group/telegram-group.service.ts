@@ -52,7 +52,7 @@ export class TelegramGroupService {
     }
 
     private async _init() {
-        const listeningChats = await this.prisma.telegramGroup.findMany();
+        const listeningChats = await this.getListeningGroups();
         this.listeningChats = listeningChats.map(c => c.chatId.toNumber());
         this.logger.debug(`Listening chats ${this.listeningChats.join(', ')}`);
         this.bot.use(async (ctx, next) => {
@@ -439,11 +439,15 @@ export class TelegramGroupService {
     }
   }
 
+  getListeningGroups() {
+    return this.prisma.telegramGroup.findMany()
+  }
+
   @Cron(`17 17 * * *`, {
         timeZone: 'Asia/Shanghai'
   })
   async updateTelegramChatsProfile() {
-    const chatsInfo = await this.prisma.telegramGroup.findMany();
+    const chatsInfo = await this.getListeningGroups();
 
     const telegramChatProfiles = await Promise.all(chatsInfo.map(({ chatId }) => {
         return this.bot.telegram.getChat(chatId.toNumber())
