@@ -59,9 +59,9 @@ export class AppService {
       try {
         // send mail with defined transport object
         let info = await this.emailService.transporter.sendMail({
-          from: `"Analytic Bot by Frank Wei👻" <${process.env.MAIL_ACCOUNT}>`, // sender address
+          from: `"Teleport Analytic Bot" <${process.env.MAIL_ACCOUNT}>`, // sender address
           to: EMAIL_REPORT_RECIPIENTS.join(', '), // list of receivers
-          subject: "Operating Platform Statistics", // Subject line
+          subject: "每日运营数据报告", // Subject line
           attachments: [
             {
               filename: filename,
