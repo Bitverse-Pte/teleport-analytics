@@ -99,7 +99,6 @@ export class AppService {
   async getCurrentPlatformStats() {
     let twitterAccountSheet = await this.twitter.exportAccountData()
     let tweetsSheets = await this.twitter.exportTweetData();
-    console.info('tweetsSheets', tweetsSheets);
     let telegramSheets = await this.telegramService.exportCurrentStat();
 
     let discordGuildSheets = await this.discordService.exportGuildCurrentStat();

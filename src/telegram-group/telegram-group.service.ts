@@ -10,6 +10,7 @@ import { TelegramGroupStats } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime';
 import * as Sentry from '@sentry/node';
 import { UptimeService } from 'src/uptime/uptime.service';
+import type { WorkSheet } from 'node-xlsx';
 
 require('dotenv').config();
 
@@ -423,7 +424,7 @@ export class TelegramGroupService {
     }
   }
 
-  async exportCurrentStat() {
+  async exportCurrentStat(): Promise<WorkSheet> {
     let head: unknown[] = [
         'Group ID',
         'Date',

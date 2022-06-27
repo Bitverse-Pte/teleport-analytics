@@ -7,6 +7,7 @@ import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedC
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
 import * as Sentry from '@sentry/node';
+import type { WorkSheet } from 'node-xlsx';
 
 require('dotenv').config();
 
@@ -408,7 +409,7 @@ export class DiscordService {
     }
 
     /** Export daily data into XLSX */
-    async exportGuildDailyData() {
+    async exportGuildDailyData(): Promise<WorkSheet> {
         let head: unknown[] = [
                 'Date',
                 'Total Member(Start)',
@@ -444,7 +445,7 @@ export class DiscordService {
         }
     }
 
-    async exportChannelsDailyData() {
+    async exportChannelsDailyData(): Promise<WorkSheet> {
         let head: unknown[] = [
             'Channel Name',
             'Channel Type',
@@ -490,7 +491,7 @@ export class DiscordService {
         }
     }
 
-    async exportGuildCurrentStat(laterThan = getXDaysAgoAtMidnight(7)) {
+    async exportGuildCurrentStat(laterThan = getXDaysAgoAtMidnight(7)): Promise<WorkSheet> {
         let head: unknown[] = [
             'Date',
             'Online Member',
