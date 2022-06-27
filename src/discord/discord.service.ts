@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
 import * as Sentry from '@sentry/node';
 import type { WorkSheet } from 'node-xlsx';
+import * as moment from 'moment-timezone';
 
 require('dotenv').config();
 
@@ -429,7 +430,7 @@ export class DiscordService {
         })
         const datas = entries.map((entry) => {
             return [
-                entry.date.toDateString(),
+                moment(entry.date).tz('Asia/Shanghai').format('MMDD'),
                 entry.startTotalMemberCount,
                 entry.endTotalMemberCount,
                 entry.lowestOnlineMemberCount,
@@ -477,7 +478,7 @@ export class DiscordService {
             return [
                 channel.name,
                 channel.type,
-                date.toDateString(),
+                moment(date).tz('Asia/Shanghai').format('MMDD'),
                 startTotalMemberCount,
                 endTotalMemberCount,
                 lowestTotalMemberCount,
@@ -509,7 +510,7 @@ export class DiscordService {
         })
         const datas = entries.map((entry) => {
             return [
-                entry.createdAt.toString(),
+                moment(entry.createdAt).tz('Asia/Shanghai').format('MMDD HH:mm'),
                 entry.onlineMemberCount,
                 entry.totalMemberCount,
             ]

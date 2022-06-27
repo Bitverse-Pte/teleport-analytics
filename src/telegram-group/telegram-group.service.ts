@@ -11,6 +11,7 @@ import { Decimal } from '@prisma/client/runtime';
 import * as Sentry from '@sentry/node';
 import { UptimeService } from 'src/uptime/uptime.service';
 import type { WorkSheet } from 'node-xlsx';
+import * as moment from 'moment-timezone';
 
 require('dotenv').config();
 
@@ -408,7 +409,7 @@ export class TelegramGroupService {
         const newMemberConversionRate = `${((entry.activeNewMemberCount / entry.newMemberCount) * 100).toFixed(2)} %`;
         return [
             entry.groupId.toString(),
-            entry.date.toDateString(),
+            moment(entry.date).tz('Asia/Shanghai').format('MMDD'),
             entry.activeMemberCount,
             entry.messageCount,
             entry.newMemberCount,
