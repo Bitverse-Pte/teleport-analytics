@@ -26,11 +26,11 @@ export class TwitterService {
     private async _init() {}
 
     /**
-     * request account information every 5 minutes,
+     * request account information every 30 minutes,
      * record a real time record and update the Twitter account information
      * @private
      */
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_30_MINUTES)
     private async syncAccountData() {
         this.logger.verbose('start sync account data')
         let accounts = await this.prisma.twitterAccount.findMany()
@@ -52,22 +52,6 @@ export class TwitterService {
             Sentry.captureException(error);
         })
         this.logger.verbose('syncAccountData::finished');
-    }
-
-    /**
-     * Fail safe protocol
-     */
-    private islogTwitterDailyStatExecuted = false;
-    @Cron(`10 08 * * *`)
-    private  _logTwitterDailyStatFailSafe() {
-        /** ignore if it was executed already */
-        if (this.islogTwitterDailyStatExecuted) {
-            // resetting indicator
-            this.islogTwitterDailyStatExecuted = false;
-            return;
-        };
-        /** Otherwise run this incase of ungraceful reboot */
-        this.logTwitterDailyStat();
     }
 
     /**
@@ -122,7 +106,6 @@ export class TwitterService {
             this.logger.error(error)
             Sentry.captureException(error);
         });
-        this.islogTwitterDailyStatExecuted = true;
         this.logger.verbose('logTwitterDailyStat::exectued');
     }
 
@@ -130,7 +113,7 @@ export class TwitterService {
      * scanTweetList sync every account for the latest 1 month tweets information
      * @private
      */
-    @Cron(CronExpression.EVERY_30_MINUTES)
+    @Cron(`30 */30 * * * *`)
     async scanTweetList() {
         const startTime = moment(new Date()).subtract(1, 'months').toISOString()
         this.logger.verbose(`start scan new tweet since ${startTime}`)
@@ -170,9 +153,41 @@ export class TwitterService {
                     }
 
                     this.logger.debug(`get ${tweets.length} tweet info`)
-                    for await (const tweet of tweets) {
-                        await this.insertOrUpdateTweetData(account.accountId, tweet)
-                    }
+                    const multiUpdate = tweets.map((tweet) => {
+                        return this.prisma.tweet.upsert({
+                            where: {
+                                tweetId: tweet.id,
+                            },
+                            update: {
+                                impressions: tweet.non_public_metrics.impression_count,
+                                urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
+                                userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
+                                retweets: tweet.public_metrics.retweet_count,
+                                quoteTweets: tweet.public_metrics.quote_count,
+                                likes: tweet.public_metrics.like_count,
+                                replies: tweet.public_metrics.reply_count,
+                                videoViews: 0,
+                            },
+                            create: {
+                                tweetId: tweet.id,
+                                createdAt: new Date(tweet.created_at),
+                                twitterAccountId: account.accountId,
+                                text: tweet.text.length > 100 ? tweet.text.substring(0, 100) : tweet.text,
+                                impressions: tweet.non_public_metrics.impression_count,
+                                urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
+                                userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
+                                retweets: tweet.public_metrics.retweet_count,
+                                quoteTweets: tweet.public_metrics.quote_count,
+                                likes: tweet.public_metrics.like_count,
+                                replies: tweet.public_metrics.reply_count,
+                                videoViews: 0,
+                            }
+                        })
+                    })
+                    await this.prisma.$transaction(multiUpdate).then().catch((error) => {
+                        Sentry.captureException(error)
+                        this.logger.error(error)
+                    })
                     // Insert realtime tweet records
                     const multiInsert = tweets.map((tweet, idx) => {
                         return {
@@ -335,56 +350,6 @@ export class TwitterService {
             Sentry.captureException(error);
             this.logger.error(error)
         })
-    }
-
-    private async insertOrUpdateTweetData(accountId: string, tweet: components["schemas"]["Tweet"]) {
-        let record = await this.prisma.tweet.findFirst({
-            where: {
-                tweetId: tweet.id,
-            }
-        })
-        if (record) {
-            await this.prisma.tweet.update({
-                where: {
-                    tweetId: tweet.id,
-                },
-                data: {
-                    impressions: tweet.non_public_metrics.impression_count,
-                    urlLinkClicks: 0, // tweet.non_public_metrics.url_link_clicks,
-                    userProfileClicks: 0, // tweet.non_public_metrics.user_profile_clicks,
-                    retweets: tweet.public_metrics.retweet_count,
-                    quoteTweets: tweet.public_metrics.quote_count,
-                    likes: tweet.public_metrics.like_count,
-                    replies: tweet.public_metrics.reply_count,
-                    videoViews: 0,
-                }
-            }).then().catch((error) => {
-                this.logger.error(`update tweet data failed: ${tweet.id}`)
-                Sentry.captureException(error);
-                this.logger.error(error.toString())
-            })
-        }else {
-            await this.prisma.tweet.create({
-                data: {
-                    tweetId: tweet.id,
-                    createdAt: new Date(tweet.created_at),
-                    twitterAccountId: accountId,
-                    text: tweet.text.length > 100 ? tweet.text.substring(0, 100) : tweet.text,
-                    impressions: tweet.non_public_metrics.impression_count,
-                    urlLinkClicks: 0, // item.non_public_metrics.url_link_clicks,
-                    userProfileClicks: 0, // item.non_public_metrics.user_profile_clicks,
-                    retweets: tweet.public_metrics.retweet_count,
-                    quoteTweets: tweet.public_metrics.quote_count,
-                    likes: tweet.public_metrics.like_count,
-                    replies: tweet.public_metrics.reply_count,
-                    videoViews: 0,
-                },
-            }).then((resp) => {}).catch((error) => {
-                this.logger.error(`update tweet data failed: ${tweet.id}`)
-                Sentry.captureException(error);
-                this.logger.error(error.toString())
-            })
-        }
     }
 
     private async getAccountAuthClient(accountId: string, accessToken: string, refreshToken: string, expiredAt: Date): Promise<OAuth2User> {
