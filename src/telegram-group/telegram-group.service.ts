@@ -184,6 +184,10 @@ export class TelegramGroupService {
 
     private _listenOnGeneralMessage(type: ListeningMessageTypes) {
         this.bot.on(type, (ctx) => {
+            /**
+             * No logging to private chat, since we can get uptime
+             */
+            if (!this.listeningGroupChats.includes(ctx.chat.id)) return;
             this.messageToBeHandled.push({
                 type,
                 msg: ctx.message
