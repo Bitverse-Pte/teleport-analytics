@@ -142,9 +142,16 @@ export class TelegramGroupService {
      * Where heavy jobs were done.
      */
     private _registerListener() {
+        /** 
+         * Commands
+         */
+        this.bot.command('uptime', async (ctx) => {
+            await ctx.reply('uptime stats: (In JSON format)')
+            await ctx.reply(JSON.stringify(this.uptimeService.getUptime(), null, 2));
+        });
         /**
          * Listening on text
-         * @TODO use batch request instead, to avoid DB too many connections error
+         * use batch request instead, to avoid DB too many connections error
          */
         (['text', 'voice', 'video', 'sticker', 'photo'] as const).forEach(type => this._listenOnGeneralMessage(type));
         this.bot.on('new_chat_members', async (ctx) => {
@@ -173,10 +180,6 @@ export class TelegramGroupService {
                 });
         });
 
-        /** Uptime related */
-        this.bot.command('uptime', async (ctx) => {
-            await ctx.reply(JSON.stringify(this.uptimeService.getUptime(), null, 2));
-        });
     }
 
     private _listenOnGeneralMessage(type: ListeningMessageTypes) {
