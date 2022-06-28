@@ -13,6 +13,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model LockMap {
+  name      String   @id
+  value     Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+
+}
+
 model DiscordGuild {
   id                String                  @id
   channels          DiscordChannel[]

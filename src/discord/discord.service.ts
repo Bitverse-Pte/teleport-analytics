@@ -2,13 +2,13 @@ import { REST } from '@discordjs/rest';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DiscordGuildChannelStat } from '@prisma/client';
-import { throws } from 'assert';
 import { Client, Collection, GuildMember, Intents, Message, NonThreadGuildBasedChannel, ThreadMember, ThreadMemberManager } from 'discord.js';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getXDaysAgoAtMidnight, getYesterday } from 'src/utils/date';
 import * as Sentry from '@sentry/node';
 import type { WorkSheet } from 'node-xlsx';
 import * as moment from 'moment-timezone';
+import { FailSafeIndicatorService } from 'src/fail-safe-indicator/fail-safe-indicator.service';
 
 require('dotenv').config();
 
@@ -18,7 +18,10 @@ export class DiscordService {
     private rest: REST;
     private client: Client;
 
-    constructor(private readonly prisma: PrismaService) {
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly failsafeService: FailSafeIndicatorService
+    ) {
         this.rest = new REST({ version: '9' }).setToken(process.env.DISCORD_BOT_TOKEN);
         this.client = new Client({ intents: [
             Intents.FLAGS.GUILDS,
@@ -295,13 +298,13 @@ export class DiscordService {
     /**
      * Fail safe protocol
      */
-    private isExecuted = false;
     @Cron(`14 08 * * *`)
-    private  _countGuildDailyAnalyticDataFailSafe() {
+    private async _countGuildDailyAnalyticDataFailSafe() {
         /** ignore if it was executed already */
-        if (this.isExecuted) {
+        const isExecuted = await this.failsafeService.getIndicator('DISCORD_SERVER_DAILY_STAT');
+        if (isExecuted) {
             // resetting indicator
-            this.isExecuted = false;
+            await this.failsafeService.setIndicator('DISCORD_SERVER_DAILY_STAT', false);
             return;
         };
         /** Otherwise run this incase of ungraceful reboot */
@@ -351,7 +354,7 @@ export class DiscordService {
         await this.countChannelsDailyAnalyticData();
         
         /** after what have done, setting the isExecuted to true */
-        this.isExecuted = true;
+        await this.failsafeService.setIndicator('DISCORD_SERVER_DAILY_STAT', true);
     }
 
     async countChannelsDailyAnalyticData() {

@@ -10,6 +10,7 @@ import { DiscordModule } from './discord/discord.module';
 import { TwitterController } from './twitter/twitter.controller';
 import { SentryModule } from './sentry/sentry.module';
 import { UptimeModule } from './uptime/uptime.module';
+import { FailSafeIndicatorModule } from './fail-safe-indicator/fail-safe-indicator.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UptimeModule } from './uptime/uptime.module';
     PrismaModule,
     DiscordModule,
     UptimeModule,
+    FailSafeIndicatorModule,
   ],
   controllers: [AppController, TwitterController],
   providers: [AppService],

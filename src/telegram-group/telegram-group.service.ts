@@ -12,6 +12,7 @@ import * as Sentry from '@sentry/node';
 import { UptimeService } from 'src/uptime/uptime.service';
 import type { WorkSheet } from 'node-xlsx';
 import * as moment from 'moment-timezone';
+import { FailSafeIndicatorService } from 'src/fail-safe-indicator/fail-safe-indicator.service';
 
 require('dotenv').config();
 
@@ -40,7 +41,8 @@ export class TelegramGroupService {
 
     constructor(
         private prisma: PrismaService,
-        private uptimeService: UptimeService
+        private uptimeService: UptimeService,
+        private readonly failSafeIndicator: FailSafeIndicatorService,
     ) {
         const agent = process.env.PROXY_SETTINGS ? new SocksProxyAgent(process.env.PROXY_SETTINGS) : undefined;
         this.bot = new Telegraf(process.env.TELEGRAM_BOT_ACCESS_TOKEN, {
@@ -330,16 +332,17 @@ export class TelegramGroupService {
     /**
      * Fail safe protocol
      */
-    private isExecuted = false;
     @Cron(`16 08 * * *`)
-    private  _logAllTelegramGroupDailyStatsFailSafe() {
+    private async _logAllTelegramGroupDailyStatsFailSafe() {
         /** ignore if it was executed already */
-        if (this.isExecuted) {
+        const isExecuted = await this.failSafeIndicator.getIndicator('TELEGRAM_GROUP_DAILY_STAT');
+        if (isExecuted) {
             // resetting indicator
-            this.isExecuted = false;
+            await this.failSafeIndicator.setIndicator('TELEGRAM_GROUP_DAILY_STAT', false);
             return;
         };
         /** Otherwise run this incase of ungraceful reboot */
+        this.logger.debug('failsafe executing');
         this.logAllTelegramGroupDailyStats();
     }
    /**
@@ -385,7 +388,7 @@ export class TelegramGroupService {
             data: groupStats
         });
         this.listeningChats.forEach(this._resetCounter.bind(this));
-        this.isExecuted = true;
+        await this.failSafeIndicator.setIndicator('TELEGRAM_GROUP_DAILY_STAT', true);
     }
 
    async exportDailyData() {
