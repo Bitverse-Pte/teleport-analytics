@@ -13,6 +13,7 @@ import { UptimeService } from 'src/uptime/uptime.service';
 import type { WorkSheet } from 'node-xlsx';
 import * as moment from 'moment-timezone';
 import { FailSafeIndicatorService } from 'src/fail-safe-indicator/fail-safe-indicator.service';
+import { TELEGRAM_BOT_COMMANDERS } from 'src/constant/telegram_bot_commander';
 
 require('dotenv').config();
 
@@ -63,7 +64,11 @@ export class TelegramGroupService {
         this.logger.debug(`Listening chats ${this.listeningChats.join(', ')}`);
         this.bot.use(async (ctx, next) => {
             const currentChatId = ctx.chat.id;
-            if (!this.listeningChats.includes(currentChatId)) {
+            /**
+             * only listening to specified chats *or* one of those bot commanders,
+             * otherwise skip
+             */
+            if (!(this.listeningChats.includes(currentChatId) || TELEGRAM_BOT_COMMANDERS.includes(currentChatId))) {
                 this.logger.warn(`attempt to use bot in chat id ${currentChatId}, will be ignored.`);
                 // skip if this chat was not listening
                 return;
