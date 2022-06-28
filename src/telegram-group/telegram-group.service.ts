@@ -36,7 +36,7 @@ export class TelegramGroupService {
     private dailyNewMemberCount: Record<number, number> = {};
     private dailyMessageCount: Record<number, number> = {};
     private activeMemberCount: Record<number, number> = {};
-    private listeningChats: number[] = [];
+    private listeningGroupChats: number[] = [];
 
     private messageToBeHandled: MessageQueueItem[] = [];
 
@@ -60,15 +60,15 @@ export class TelegramGroupService {
 
     private async _init() {
         const listeningChats = await this.getListeningGroups();
-        this.listeningChats = listeningChats.map(c => c.chatId.toNumber());
-        this.logger.debug(`Listening chats ${this.listeningChats.join(', ')}`);
+        this.listeningGroupChats = listeningChats.map(c => c.chatId.toNumber());
+        this.logger.debug(`Listening chats ${this.listeningGroupChats.join(', ')}`);
         this.bot.use(async (ctx, next) => {
             const currentChatId = ctx.chat.id;
             /**
              * only listening to specified chats *or* one of those bot commanders,
              * otherwise skip
              */
-            if (!(this.listeningChats.includes(currentChatId) || TELEGRAM_BOT_COMMANDERS.includes(currentChatId))) {
+            if (!(this.listeningGroupChats.includes(currentChatId) || TELEGRAM_BOT_COMMANDERS.includes(currentChatId))) {
                 this.logger.warn(`attempt to use bot in chat id ${currentChatId}, will be ignored.`);
                 // skip if this chat was not listening
                 return;
@@ -110,7 +110,7 @@ export class TelegramGroupService {
         
         const latestCounter = await this.prisma.telegramGroupStats.findMany({
             where: {
-                groupId: { in: this.listeningChats },
+                groupId: { in: this.listeningGroupChats },
                 date: {
                     gte: getYesterday()
                 }
@@ -119,7 +119,7 @@ export class TelegramGroupService {
                 id: 'desc'
             }
         });
-        return this.listeningChats.map((chatId) => {
+        return this.listeningGroupChats.map((chatId) => {
             return latestCounter.filter((c) => c.groupId.toNumber() === chatId)[0] || {
                 groupId: new Decimal(chatId),
                 activeMemberCount: 0,
@@ -316,9 +316,9 @@ export class TelegramGroupService {
     @Cron(CronExpression.EVERY_5_MINUTES)
     async saveCurrentTelegramStat() {
         try {
-            const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
+            const totalMemberCounts: number[] = await Promise.all(this.listeningGroupChats.map(this.countGroupMembers.bind(this)));
             this.logger.debug('saveCurrentTelegramStat::counting groupStats');
-            const groupStats = this.listeningChats.map((groupId, idx) => {
+            const groupStats = this.listeningGroupChats.map((groupId, idx) => {
                 return {
                     groupId,
                     newMemberCount: this.dailyNewMemberCount[groupId],
@@ -360,7 +360,7 @@ export class TelegramGroupService {
         timeZone: 'Asia/Shanghai'
     })
     async logAllTelegramGroupDailyStats() {
-        const totalMemberCounts: number[] = await Promise.all(this.listeningChats.map(this.countGroupMembers.bind(this)));
+        const totalMemberCounts: number[] = await Promise.all(this.listeningGroupChats.map(this.countGroupMembers.bind(this)));
         const yesterday = getYesterday();
         const activeNewMembers = await this.prisma.telegramChatMember.findMany({
             where: {
@@ -380,7 +380,7 @@ export class TelegramGroupService {
             }
         });
         this.logger.debug('logAllTelegramGroupDailyStats::counting groupStats');
-        const groupStats = this.listeningChats.map((groupId, idx) => {
+        const groupStats = this.listeningGroupChats.map((groupId, idx) => {
             return {
                 groupId,
                 newMemberCount: this.dailyNewMemberCount[groupId],
@@ -395,7 +395,7 @@ export class TelegramGroupService {
         await this.prisma.telegramGroupDailyStat.createMany({
             data: groupStats
         });
-        this.listeningChats.forEach(this._resetCounter.bind(this));
+        this.listeningGroupChats.forEach(this._resetCounter.bind(this));
         await this.failSafeIndicator.setIndicator('TELEGRAM_GROUP_DAILY_STAT', true);
     }
 
