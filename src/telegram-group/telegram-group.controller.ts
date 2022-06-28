@@ -9,7 +9,7 @@ export class TelegramGroupController {
     @Post('/stop')
     async stopTelegramBotFromListening(){
         this.telegramService.stopListening();
-        return 'OK';
+        return { message: 'OK', responseAt: new Date().toTimeString() };
     }
     @Get('/group')
     async getGroupChats () {

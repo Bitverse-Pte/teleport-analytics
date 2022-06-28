@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { All, Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { AppService } from './app.service';
 import * as moment from 'moment'
 import { UptimeService } from './uptime/uptime.service';
@@ -14,10 +14,10 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Get('/metrics')
+  @All('/metrics')
   iAmStillAlive() {
     const uptime = this.uptimeService.getUptime();
-    return { message: 'Still alive', uptime };
+    return { message: 'Still alive', uptime, responseAt: new Date().toTimeString() };
   }
 
   @Get('/getReportData')
