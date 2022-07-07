@@ -26,6 +26,7 @@ model DiscordGuild {
   members           DiscordGuildMember[]
   discordGuildStats DiscordGuildStat[]
   guildDailyStats   DiscordGuildDailyStat[]
+  rolesStat         DiscordGuildRolesStat[]
 }
 
 model DiscordGuildMember {
@@ -123,6 +124,19 @@ model DiscordGuildChannelDailyStat {
   highestTotalMemberCount Int    @default(0)
   lowestTotalMemberCount  Int    @default(0)
   discordChannelId        String
+}
+
+model DiscordGuildRolesStat {
+  id   Int      @id @default(autoincrement())
+  date DateTime @default(now())
+
+  guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
+  discordGuildId String
+  unicodeEmoji   String
+
+  roleId String
+  name   String
+  count  Int
 }
 
 model TelegramGroup {
