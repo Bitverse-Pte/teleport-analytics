@@ -352,6 +352,8 @@ export class DiscordService {
 
         /** count channel now */
         await this.countChannelsDailyAnalyticData();
+        /** count roles stats now */
+        await this.countRoleDailyStats(guildInfo.id);
         
         /** after what have done, setting the isExecuted to true */
         await this.failsafeService.setIndicator('DISCORD_SERVER_DAILY_STAT', true);
@@ -410,6 +412,23 @@ export class DiscordService {
                 }
             })
         })
+    }
+
+    async countRoleDailyStats(guildId: string) {
+        // since it was fetched every hour, i just read the cache.
+        const guildCache = this.client.guilds.cache.get(guildId);
+        const fetchedRoles = await guildCache.roles.fetch();
+        const rolesStats = fetchedRoles.map(({ id, name, members, ...role }) => ({
+            roleId: id,
+            name,
+            count: members.size,
+            discordGuildId: guildId,
+            unicodeEmoji: role.unicodeEmoji
+        }));
+
+        await this.prisma.discordGuildRolesStat.createMany({
+            data: rolesStats
+        });
     }
 
     /** Export daily data into XLSX */
