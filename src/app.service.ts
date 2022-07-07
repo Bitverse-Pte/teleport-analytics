@@ -103,13 +103,15 @@ export class AppService {
 
     let discordGuildSheets = await this.discordService.exportGuildCurrentStat();
     let discordGuildChannelsSheets = await this.discordService.exportChannelsCurrentStat();
+    let discordGuildRolesSheets = await this.discordService.exportRolesStat();
 
     let buffer = xlsx.build([
       twitterAccountSheet,
       tweetsSheets,
       telegramSheets,
       discordGuildSheets,
-      discordGuildChannelsSheets
+      discordGuildChannelsSheets,
+      discordGuildRolesSheets
     ])
     let filename = `TeleportChain-Stats-${moment().format('YYYYMMDD')}.xlsx`
     fs.writeFile(filename, buffer, async (err) => {

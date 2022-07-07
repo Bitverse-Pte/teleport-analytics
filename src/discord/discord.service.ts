@@ -571,6 +571,33 @@ export class DiscordService {
         }
     }
 
+    async exportRolesStat(laterThan = getXDaysAgoAtMidnight(1)) {
+        let head: unknown[] = [
+            'Name',
+            'Member Qty. with that Role',
+            'Date',
+        ];
+        const entries = await this.prisma.discordGuildRolesStat.findMany({
+            where: {
+                date: {
+                    gte: laterThan
+                },
+            }
+        });
+        const datas = entries.map((entry) => {
+            return [
+                entry.name,
+                entry.count,
+                entry.date.toDateString(),
+            ]
+        });
+        return {
+            name: "Discord Role Stats(Daily)",
+            data: [head, ...datas],
+            options: {},
+        }
+    }
+
     exportGuildYesterdayHourStats() {
         return this.exportGuildCurrentStat(getYesterday());
     }
