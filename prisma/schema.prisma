@@ -132,7 +132,7 @@ model DiscordGuildRolesStat {
 
   guild          DiscordGuild @relation(fields: [discordGuildId], references: [id])
   discordGuildId String
-  unicodeEmoji   String
+  unicodeEmoji   String?
 
   roleId String
   name   String
