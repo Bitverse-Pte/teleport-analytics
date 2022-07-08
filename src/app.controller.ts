@@ -31,10 +31,4 @@ export class AppController {
     await this.appService.sendReport();
     return 'OK';
   }
-
-  @Post('/writeCurrentPlatformStats')
- async getCurrentPlatformStats() {
-   await this.appService.getCurrentPlatformStats()
-   return 'OK'
- }
 }

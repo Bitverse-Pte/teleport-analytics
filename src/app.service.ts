@@ -39,6 +39,7 @@ export class AppService {
         discordGuildSheets,
         discordGuildChannelsSheets,
         discordYesterdayHourStatSheets,
+        discordGuildRolesSheets,
     } = await this.getReportData();
 
     let buffer = xlsx.build([
@@ -47,7 +48,8 @@ export class AppService {
       telegramSheets,
       discordGuildSheets,
       discordYesterdayHourStatSheets,
-      discordGuildChannelsSheets
+      discordGuildChannelsSheets,
+      discordGuildRolesSheets
     ])
     let filename = `TeleportChain-Analytics-${moment().format('YYYYMMDD')}.xlsx`
     fs.writeFile(filename, buffer, async err => {
@@ -85,6 +87,7 @@ export class AppService {
     let discordGuildSheets = await this.discordService.exportGuildDailyData();
     let discordYesterdayHourStatSheets = await this.discordService.exportGuildYesterdayHourStats()
     let discordGuildChannelsSheets = await this.discordService.exportChannelsDailyData();
+    let discordGuildRolesSheets = await this.discordService.exportRolesStat();
 
     return {
       twitterAccountSheet,
@@ -92,34 +95,8 @@ export class AppService {
       telegramSheets,
       discordGuildSheets,
       discordGuildChannelsSheets,
-      discordYesterdayHourStatSheets
-    }
-  }
-
-  async getCurrentPlatformStats() {
-    let twitterAccountSheet = await this.twitter.exportAccountData()
-    let tweetsSheets = await this.twitter.exportTweetData();
-    let telegramSheets = await this.telegramService.exportCurrentStat();
-
-    let discordGuildSheets = await this.discordService.exportGuildCurrentStat();
-    let discordGuildChannelsSheets = await this.discordService.exportChannelsCurrentStat();
-    let discordGuildRolesSheets = await this.discordService.exportRolesStat();
-
-    let buffer = xlsx.build([
-      twitterAccountSheet,
-      tweetsSheets,
-      telegramSheets,
-      discordGuildSheets,
-      discordGuildChannelsSheets,
+      discordYesterdayHourStatSheets,
       discordGuildRolesSheets
-    ])
-    let filename = `TeleportChain-Stats-${moment().format('YYYYMMDD')}.xlsx`
-    fs.writeFile(filename, buffer, async (err) => {
-      if (err) {
-        console.error(err)
-        Sentry.captureException(err);
-        return
-      }
-    });
+    }
   }
 }
